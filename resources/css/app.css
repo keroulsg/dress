@@ -1,0 +1,94 @@
+@import 'tailwindcss';
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap');
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../js/**/*.tsx';
+
+@theme {
+    /* Luxury editorial palette */
+    --color-ivory: #faf8f5;
+    --color-white: #ffffff;
+    --color-champagne: #c5a059;
+    --color-champagne-light: #e6d9bd;
+    --color-rose: #9b4b58;
+    --color-rose-deep: #7a3845;
+    --color-charcoal: #1c1917;
+    --color-stone-muted: #78716c;
+    --color-stone-line: #e7e5e4;
+
+    /* Semantic status */
+    --color-success: #2f7d5b;
+    --color-warning: #b7791f;
+    --color-danger: #b3414b;
+    --color-info: #3b6ea5;
+
+    /* Typography */
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-ui: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-arabic: 'Tajawal', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+    /* Editorial rhythm */
+    --tracking-luxe: 0.2em;
+}
+
+:root {
+    color: #1c1917;
+    background: #faf8f5;
+    font-family: var(--font-sans);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Accessible focus ring that follows the brand */
+:focus-visible {
+    outline: 2px solid var(--color-rose);
+    outline-offset: 2px;
+}
+
+/* Arabic (RTL) typography support */
+[dir='rtl'] {
+    font-family: var(--font-arabic);
+}
+
+/* Scrollbar refinement for a polished feel */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-stone-line);
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-champagne);
+}
