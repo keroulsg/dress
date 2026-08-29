@@ -4,27 +4,29 @@ declare(strict_types=1);
 
 namespace App\Modules\Finance\Application\Services;
 
-use App\Modules\Finance\Application\DTOs\LedgerEntryDTO;
+use App\Modules\Finance\Domain\Contracts\LedgerContract;
 use App\Modules\Finance\Domain\Contracts\SettlementContract;
+use App\Modules\Finance\Domain\Entities\AtelierPayout;
+use App\Modules\Finance\Domain\Exceptions\InsufficientPayoutBalanceException;
 use App\Modules\Finance\Infrastructure\Repositories\LedgerRepository;
+use App\Modules\Payment\Domain\Entities\Transaction;
 use App\Modules\Pricing\Domain\ValueObjects\Money;
 
+/**
+ * Atelier settlement: commission calculation, payout requests, and execution.
+ */
 class SettlementService implements SettlementContract
 {
     public function __construct(
         private readonly LedgerRepository $ledger,
+        private readonly LedgerContract $ledgerPosting,
     ) {}
 
-    public function calculateSettlement(int $transactionId): array
+    public function calculateAtelierPayable(Money $rentalSubtotal, float $commissionRate): array
     {
-        $currency = $this->ledger->findTransactionCurrency($transactionId) ?? 'EGP';
-        $amountMinor = $this->ledger->findTransactionAmountMinor($transactionId);
-        $amount = $amountMinor === null ? Money::zero($currency) : Money::fromMinorUnits($amountMinor, $currency);
-
-        $rate = $this->ledger->findAtelierCommissionRate($transactionId) ?? 0.0;
-
-        $commission = $amount->multiply($rate);
-        $payable = $amount->subtract($commission);
+        $rate = max(0.0, min(1.0, $commissionRate));
+        $commission = $rentalSubtotal->multiply((string) $rate);
+        $payable = $rentalSubtotal->subtract($commission);
 
         return [
             'payable' => $payable,
@@ -32,29 +34,32 @@ class SettlementService implements SettlementContract
         ];
     }
 
-    public function createPayout(int $atelierId, Money $amount, string $payoutKey): void
+    public function createPayout(int $atelierId, Money $amount, string $payoutKey): AtelierPayout
     {
         if ($this->ledger->findPayout($payoutKey) !== null) {
-            return;
+            return AtelierPayout::query()->where('payout_key', $payoutKey)->firstOrFail();
         }
 
-        $this->ledger->storePayout([
+        $available = $this->ledgerPosting->getAtelierAvailableBalance($atelierId);
+
+        if ($amount->greaterThan($available)) {
+            throw InsufficientPayoutBalanceException::forAtelier($atelierId, $available->__toString());
+        }
+
+        $payoutId = $this->ledger->storePayout([
             'atelier_id' => $atelierId,
-            'amount' => $amount->toMinorUnits(),
+            'amount' => $amount->amount(),
             'currency' => $amount->currency(),
             'payout_key' => $payoutKey,
             'status' => 'pending',
         ]);
+
+        return AtelierPayout::query()->findOrFail($payoutId);
     }
 
-    public function settlementLedgerEntries(int $transactionId): array
+    public function processPayout(AtelierPayout $payout, Transaction $transaction): void
     {
-        $settlement = $this->calculateSettlement($transactionId);
-
-        return [
-            new LedgerEntryDTO('1100', $settlement['payable']->add($settlement['commission']), true, 'Rental payment received'),
-            new LedgerEntryDTO('2200', $settlement['payable'], false, 'Atelier payable'),
-            new LedgerEntryDTO('3200', $settlement['commission'], false, 'Platform commission'),
-        ];
+        $this->ledgerPosting->recordAtelierPayout($payout, $transaction);
+        $this->ledger->markPayoutPaid($payout->id);
     }
 }

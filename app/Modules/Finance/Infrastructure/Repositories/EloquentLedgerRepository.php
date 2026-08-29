@@ -7,7 +7,6 @@ namespace App\Modules\Finance\Infrastructure\Repositories;
 use App\Modules\Finance\Domain\Entities\AtelierPayout;
 use App\Modules\Finance\Domain\Entities\LedgerAccount;
 use App\Modules\Finance\Domain\Entities\LedgerEntry;
-use App\Modules\Finance\Domain\Entities\LedgerReconciliation;
 use App\Modules\Payment\Domain\Entities\Transaction;
 
 class EloquentLedgerRepository implements LedgerRepository
@@ -15,7 +14,6 @@ class EloquentLedgerRepository implements LedgerRepository
     public function __construct(
         private readonly LedgerEntry $ledgerEntry,
         private readonly LedgerAccount $ledgerAccount,
-        private readonly LedgerReconciliation $reconciliation,
         private readonly AtelierPayout $atelierPayout,
         private readonly Transaction $transaction,
     ) {}
@@ -32,54 +30,48 @@ class EloquentLedgerRepository implements LedgerRepository
 
     public function getEntries(int $transactionId): array
     {
-        return $this->ledgerEntry
+        return $this->ledgerEntry->newQuery()
             ->where('transaction_id', $transactionId)
             ->get()
             ->toArray();
     }
 
-    public function findReconciliation(string $idempotencyKey): ?array
-    {
-        return $this->reconciliation
-            ->where('idempotency_key', $idempotencyKey)
-            ->first()
-            ?->toArray();
-    }
-
-    public function storeReconciliation(int $transactionId, string $idempotencyKey): void
-    {
-        $this->reconciliation->create([
-            'transaction_id' => $transactionId,
-            'idempotency_key' => $idempotencyKey,
-            'created_at' => now(),
-        ]);
-    }
-
     public function findAccountByCode(string $code): ?array
     {
-        return $this->ledgerAccount
+        return $this->ledgerAccount->newQuery()
             ->where('code', $code)
             ->first()
             ?->toArray();
     }
 
-    public function findTransactionAmountMinor(int $transactionId): ?int
+    public function globalDebitCreditTotals(): array
     {
-        $amount = $this->transaction->whereKey($transactionId)->value('amount');
+        $totals = $this->ledgerEntry->newQuery()
+            ->selectRaw('SUM(debit) as debits, SUM(credit) as credits')
+            ->first();
 
-        return $amount === null ? null : (int) round((float) $amount * 100);
+        return [
+            'debits' => (string) ($totals->debits ?? 0),
+            'credits' => (string) ($totals->credits ?? 0),
+        ];
     }
 
-    public function findTransactionCurrency(int $transactionId): ?string
+    public function atelierPayableBalance(int $atelierId): string
     {
-        $currency = $this->transaction->whereKey($transactionId)->value('currency');
+        $balance = $this->ledgerEntry->newQuery()
+            ->join('ledger_accounts', 'ledger_entries.account_id', '=', 'ledger_accounts.id')
+            ->join('transactions', 'ledger_entries.transaction_id', '=', 'transactions.id')
+            ->where('ledger_accounts.code', '2020')
+            ->where('transactions.atelier_id', $atelierId)
+            ->selectRaw('(SUM(ledger_entries.credit) - SUM(ledger_entries.debit)) as balance')
+            ->value('balance');
 
-        return $currency === null ? null : (string) $currency;
+        return (string) ($balance ?? 0);
     }
 
     public function findAtelierCommissionRate(int $transactionId): ?float
     {
-        $transaction = $this->transaction
+        $transaction = $this->transaction->newQuery()
             ->with('atelier:id,commission_rate')
             ->find($transactionId);
 
@@ -90,11 +82,27 @@ class EloquentLedgerRepository implements LedgerRepository
 
     public function findPayout(string $payoutKey): ?array
     {
-        return $this->atelierPayout->where('payout_key', $payoutKey)->first()?->toArray();
+        return $this->atelierPayout->newQuery()
+            ->where('payout_key', $payoutKey)
+            ->first()
+            ?->toArray();
     }
 
-    public function storePayout(array $attributes): void
+    public function findPayoutById(int $payoutId): ?array
     {
-        $this->atelierPayout->create($attributes);
+        return $this->atelierPayout->newQuery()->find($payoutId)?->toArray();
+    }
+
+    public function storePayout(array $attributes): int
+    {
+        return $this->atelierPayout->newQuery()->create($attributes)->id;
+    }
+
+    public function markPayoutPaid(int $payoutId): void
+    {
+        $this->atelierPayout->newQuery()->whereKey($payoutId)->update([
+            'status' => 'paid',
+            'paid_at' => now(),
+        ]);
     }
 }

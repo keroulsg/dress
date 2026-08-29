@@ -6,6 +6,7 @@ namespace Tests\Feature\Security;
 
 use App\Modules\Administration\Domain\Entities\AuditLog;
 use App\Modules\Atelier\Infrastructure\Database\Factories\AtelierFactory;
+use App\Modules\Booking\Domain\Enums\BookingStatus;
 use App\Modules\Booking\Infrastructure\Database\Factories\BookingFactory;
 use App\Modules\Identity\Infrastructure\Database\Factories\UserFactory;
 use App\Modules\KYC\Domain\Entities\KycVerification;
@@ -71,7 +72,10 @@ class AuditLogTest extends TestCase
     public function test_booking_cancellation_is_audited(): void
     {
         $renter = UserFactory::new()->renter()->create();
-        $booking = BookingFactory::new()->create(['renter_id' => $renter->id]);
+        $booking = BookingFactory::new()->create([
+            'renter_id' => $renter->id,
+            'status' => BookingStatus::Confirmed,
+        ]);
 
         $booking->update([
             'status' => 'cancelled',
@@ -95,7 +99,10 @@ class AuditLogTest extends TestCase
     public function test_audit_records_are_append_only(): void
     {
         $renter = UserFactory::new()->renter()->create();
-        $booking = BookingFactory::new()->create(['renter_id' => $renter->id]);
+        $booking = BookingFactory::new()->create([
+            'renter_id' => $renter->id,
+            'status' => BookingStatus::PendingPayment,
+        ]);
 
         $booking->update(['status' => 'cancelled', 'cancellation_reason' => 'Test']);
 

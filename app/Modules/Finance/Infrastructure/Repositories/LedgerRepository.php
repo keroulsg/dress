@@ -16,18 +16,22 @@ interface LedgerRepository
      */
     public function getEntries(int $transactionId): array;
 
-    public function findReconciliation(string $idempotencyKey): ?array;
-
-    public function storeReconciliation(int $transactionId, string $idempotencyKey): void;
-
     /**
      * @return array<string, mixed>|null
      */
     public function findAccountByCode(string $code): ?array;
 
-    public function findTransactionAmountMinor(int $transactionId): ?int;
+    /**
+     * Sums debits and credits across the entire ledger.
+     *
+     * @return array{debits: string, credits: string}
+     */
+    public function globalDebitCreditTotals(): array;
 
-    public function findTransactionCurrency(int $transactionId): ?string;
+    /**
+     * Net payable balance for an atelier (account 2020 credits minus debits).
+     */
+    public function atelierPayableBalance(int $atelierId): string;
 
     public function findAtelierCommissionRate(int $transactionId): ?float;
 
@@ -36,5 +40,12 @@ interface LedgerRepository
      */
     public function findPayout(string $payoutKey): ?array;
 
-    public function storePayout(array $attributes): void;
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findPayoutById(int $payoutId): ?array;
+
+    public function storePayout(array $attributes): int;
+
+    public function markPayoutPaid(int $payoutId): void;
 }

@@ -14,6 +14,7 @@ use App\Modules\Payment\Domain\Contracts\PaymentGatewayContract;
 use App\Modules\Payment\Domain\Entities\Transaction;
 use App\Modules\Payment\Domain\Enums\TransactionStatus;
 use App\Modules\Payment\Domain\Enums\TransactionType;
+use App\Modules\Payment\Domain\Events\DepositSettled;
 use App\Modules\Payment\Domain\Events\PaymentCaptured;
 use App\Modules\Payment\Domain\Events\PaymentRefunded;
 use App\Modules\Payment\Domain\Exceptions\PaymentFailedException;
@@ -156,7 +157,7 @@ class PaymentService implements PaymentContract
 
     public function processDepositSettlement(int $bookingId, Money $depositHeld, Money $deductionAmount, Money $refundAmount, string $idempotencyKey): void
     {
-        DB::transaction(function () use ($bookingId, $deductionAmount, $refundAmount, $idempotencyKey): void {
+        DB::transaction(function () use ($bookingId, $depositHeld, $deductionAmount, $refundAmount, $idempotencyKey): void {
             if ($this->payments->findIdempotencyRecord($idempotencyKey) !== null) {
                 return;
             }
@@ -203,6 +204,8 @@ class PaymentService implements PaymentContract
             }
 
             $this->payments->storeIdempotencyKey($idempotencyKey, 'deposit_settlement', (int) $depositTransaction['id']);
+
+            Event::dispatch(new DepositSettled($bookingId, (int) $depositTransaction['id'], $depositHeld, $deductionAmount, $refundAmount));
         });
     }
 

@@ -6,7 +6,7 @@ namespace App\Modules\Finance\Domain\Exceptions;
 
 use RuntimeException;
 
-class UnbalancedLedgerException extends RuntimeException
+class UnbalancedLedgerEntryException extends RuntimeException
 {
     public static function forTransaction(int $transactionId, string $debits, string $credits): self
     {

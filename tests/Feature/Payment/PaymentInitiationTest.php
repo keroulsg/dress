@@ -11,6 +11,7 @@ use App\Modules\Booking\Domain\Entities\Booking;
 use App\Modules\Booking\Domain\Enums\BookingStatus;
 use App\Modules\Catalog\Infrastructure\Database\Factories\CategoryFactory;
 use App\Modules\Catalog\Infrastructure\Database\Factories\DressFactory;
+use App\Modules\Finance\Infrastructure\Database\Seeders\FinanceSeeder;
 use App\Modules\Identity\Domain\Entities\User;
 use App\Modules\Identity\Infrastructure\Database\Factories\UserFactory;
 use App\Modules\KYC\Domain\Entities\KycVerification;
@@ -33,6 +34,9 @@ class PaymentInitiationTest extends TestCase
     {
         parent::setUp();
 
+        $this->seed(FinanceSeeder::class);
+
+        $this->seed(FinanceSeeder::class);
         $owner = UserFactory::new()->atelierOwner()->create();
         $atelier = AtelierFactory::new()->approved()->create(['owner_user_id' => $owner->id]);
         $category = CategoryFactory::new()->create();

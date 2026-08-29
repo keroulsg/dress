@@ -10,6 +10,7 @@ use App\Modules\Booking\Domain\Contracts\BookingOrchestratorContract;
 use App\Modules\Booking\Domain\Entities\Booking;
 use App\Modules\Catalog\Infrastructure\Database\Factories\CategoryFactory;
 use App\Modules\Catalog\Infrastructure\Database\Factories\DressFactory;
+use App\Modules\Finance\Infrastructure\Database\Seeders\FinanceSeeder;
 use App\Modules\Identity\Infrastructure\Database\Factories\UserFactory;
 use App\Modules\KYC\Domain\Entities\KycVerification;
 use App\Modules\Payment\Domain\Contracts\PaymentContract;
@@ -30,6 +31,9 @@ class DepositHoldAndReleaseTest extends TestCase
     {
         parent::setUp();
 
+        $this->seed(FinanceSeeder::class);
+
+        $this->seed(FinanceSeeder::class);
         $owner = UserFactory::new()->atelierOwner()->create();
         $atelier = AtelierFactory::new()->approved()->create(['owner_user_id' => $owner->id]);
         $category = CategoryFactory::new()->create();
