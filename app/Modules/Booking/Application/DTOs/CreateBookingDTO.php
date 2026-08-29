@@ -21,5 +21,6 @@ final readonly class CreateBookingDTO
         public ?CarbonInterface $fittingDatetime = null,
         public ?string $deliveryAddress = null,
         public ?string $clientToken = null,
+        public ?string $couponCode = null,
     ) {}
 }

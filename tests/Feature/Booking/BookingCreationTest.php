@@ -113,10 +113,10 @@ class BookingCreationTest extends TestCase
 
         $booking = Booking::query()->latest('id')->first();
 
-        // Server-side: 500 × 3 days = 1500; cleaning 150; tax 1500 × 0.14 = 210; deposit 2000 => 3860.00
+        // Server-side: 500 × 3 days = 1500; cleaning 150; tax (1500+150)×0.14 = 231; deposit 2000 => 3881.00
         $this->assertSame('1500.00', $booking->rental_rate_total);
         $this->assertSame('2000.00', $booking->security_deposit_amount);
-        $this->assertSame('3860.00', $booking->grand_total);
+        $this->assertSame('3881.00', $booking->grand_total);
     }
 
     public function test_duplicate_submission_with_same_token_is_idempotent(): void

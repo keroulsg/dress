@@ -9,14 +9,33 @@ export interface Money {
 }
 
 export interface PricingBreakdown {
-    rental_subtotal: Money;
+    daily_rate: Money;
+    rental_days: number;
+    subtotal: Money;
     cleaning_fee: Money;
-    tax_amount: Money;
+    delivery_fee: Money;
     discount_amount: Money;
+    tax_rate: number;
+    tax_amount: Money;
+    chargeable_total: Money;
     security_deposit: Money;
     grand_total: Money;
-    amount_chargeable: Money;
-    rental_days: number;
+    currency: string;
+}
+
+export interface DepositSettlement {
+    deposit_held: Money;
+    damage_deduction: Money;
+    late_fee_deduction: Money;
+    net_refundable_amount: Money;
+    currency: string;
+}
+
+export interface CouponDiscount {
+    code: string;
+    discount_type: string;
+    discount_amount: Money;
+    subtotal: Money;
     currency: string;
 }
 

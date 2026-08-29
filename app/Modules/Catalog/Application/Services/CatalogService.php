@@ -51,6 +51,7 @@ class CatalogService implements CatalogReader, DressManagementContract
             securityDepositAmount: Money::fromDecimal($dress->security_deposit_amount, self::CURRENCY),
             cleaningFee: Money::fromDecimal($dress->cleaning_fee, self::CURRENCY),
             lateFeePerDay: Money::fromDecimal($dress->late_fee_per_day, self::CURRENCY),
+            originalRetailValue: Money::fromDecimal($dress->original_retail_value, self::CURRENCY),
             turnaroundBufferDays: (int) $dress->turnaround_buffer_days,
             availableSizes: $dress->sizes->where('is_available', true)->pluck('size_code')->sort()->values()->all(),
             primaryImagePath: $primaryImage?->image_path,

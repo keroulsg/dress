@@ -24,6 +24,7 @@ final readonly class DressSnapshotDTO
         public Money $securityDepositAmount,
         public Money $cleaningFee,
         public Money $lateFeePerDay,
+        public Money $originalRetailValue,
         public int $turnaroundBufferDays,
         public array $availableSizes,
         public ?string $primaryImagePath = null,

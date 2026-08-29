@@ -84,8 +84,8 @@ class BookingService implements BookingOrchestratorContract
                 endDate: $dto->endDate,
                 rentalDays: $rentalDays,
                 cleaningFee: $dress->cleaningFee->amount(),
-                taxRate: (float) config('pricing.tax_rate', 0.14),
                 securityDeposit: $dress->securityDepositAmount->amount(),
+                couponCode: $dto->couponCode,
                 currency: self::CURRENCY,
             ));
 
@@ -98,7 +98,7 @@ class BookingService implements BookingOrchestratorContract
                 'start_date' => $dto->startDate->toDateString(),
                 'end_date' => $dto->endDate->toDateString(),
                 'rental_days_count' => $rentalDays,
-                'rental_rate_total' => $breakdown->rentalSubtotal->amount(),
+                'rental_rate_total' => $breakdown->subtotal->amount(),
                 'cleaning_fee_total' => $breakdown->cleaningFee->amount(),
                 'security_deposit_amount' => $breakdown->securityDeposit->amount(),
                 'late_fee_total' => '0',
@@ -127,8 +127,17 @@ class BookingService implements BookingOrchestratorContract
                 'quantity' => 1,
                 'unit_rental_price' => $dress->rentalPricePerDay->amount(),
                 'rental_days' => $rentalDays,
-                'subtotal' => $breakdown->rentalSubtotal->amount(),
+                'subtotal' => $breakdown->subtotal->amount(),
             ]);
+
+            if ($dto->couponCode !== null && ! $breakdown->discountAmount->isZero()) {
+                $this->pricing->recordCouponUsage(
+                    $dto->couponCode,
+                    $dto->renterId,
+                    $booking->id,
+                    $breakdown->discountAmount,
+                );
+            }
 
             return $booking;
         });

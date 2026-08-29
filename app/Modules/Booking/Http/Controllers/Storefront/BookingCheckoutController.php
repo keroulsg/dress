@@ -13,6 +13,7 @@ use App\Modules\Catalog\Domain\Contracts\CatalogReader;
 use App\Modules\Catalog\Domain\Entities\Dress;
 use App\Modules\Pricing\Application\DTOs\PricingCalculationDTO;
 use App\Modules\Pricing\Domain\Contracts\PricingContract;
+use App\Modules\Pricing\Domain\Exceptions\InvalidCouponException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Routing\Controller;
 use Inertia\Inertia;
@@ -77,11 +78,14 @@ class BookingCheckoutController extends Controller
                 fittingDatetime: $request->filled('fitting_datetime') ? $request->date('fitting_datetime') : null,
                 deliveryAddress: $request->input('delivery_address'),
                 clientToken: $request->input('client_token'),
+                couponCode: $request->input('coupon_code'),
             ));
         } catch (BookingCheckoutException $exception) {
             return back()->withErrors(['booking' => $exception->getMessage()]);
         } catch (DressUnavailableException) {
             return back()->withErrors(['booking' => 'The selected dates are no longer available. Please choose other dates.']);
+        } catch (InvalidCouponException $exception) {
+            return back()->withErrors(['coupon_code' => $exception->getMessage()]);
         }
 
         return redirect()->route('customer.bookings.show', $booking)->with('success', 'Booking created — complete payment to confirm.');
