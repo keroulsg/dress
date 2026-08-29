@@ -29,6 +29,8 @@ class InspectionReport extends Model
         'approved_deposit_deduction',
         'customer_approved',
         'customer_approved_at',
+        'finalized_at',
+        'finalized_by',
     ];
 
     protected function casts(): array
@@ -39,6 +41,7 @@ class InspectionReport extends Model
             'approved_deposit_deduction' => 'decimal:2',
             'customer_approved' => 'boolean',
             'customer_approved_at' => 'datetime',
+            'finalized_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];

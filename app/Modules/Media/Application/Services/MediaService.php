@@ -44,7 +44,9 @@ class MediaService implements MediaContract
 
     public function storeOptimizedImage(array $file, array $options = []): StoredAssetDTO
     {
-        $tmpPath = $this->requireTmpPath($file);
+        $options = [...$file, ...$options];
+
+        $tmpPath = $this->requireTmpPath($options);
 
         if (! function_exists('imagecreatefromwebp')) {
             throw InvalidMediaException::gdUnavailable();
@@ -63,7 +65,7 @@ class MediaService implements MediaContract
         }
 
         $atelierId = (int) ($options['atelier_id'] ?? 0);
-        $directory = sprintf('dresses/%d/%d', $atelierId, (int) date('Y'));
+        $directory = $options['directory'] ?? sprintf('dresses/%d/%d', $atelierId, (int) date('Y'));
         $base = Str::uuid()->toString();
 
         $disk = Storage::disk((string) config('media.public_disk'));

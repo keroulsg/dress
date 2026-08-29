@@ -86,9 +86,12 @@ class InventoryStateSyncTest extends TestCase
     {
         $inventory = app(InventoryStateContract::class);
 
+        // Draft -> Rented is not a permitted transition (Draft allows only
+        // Active / Retired).
+        $this->dress->update(['status' => 'draft']);
+
         $this->expectException(InvalidInventoryTransitionException::class);
 
-        // Active -> Rented is not a permitted transition (must go Reserved first).
         $inventory->transitionStatus($this->dress->id, DressStatus::Rented);
     }
 }

@@ -20,9 +20,9 @@ class InventoryService implements InventoryStateContract, InventoryStateManager
      */
     private const TRANSITIONS = [
         DressStatus::Draft->value => [DressStatus::Active->value, DressStatus::Retired->value],
-        DressStatus::Active->value => [DressStatus::Reserved->value, DressStatus::Maintenance->value, DressStatus::Cleaning->value, DressStatus::Alteration->value, DressStatus::Retired->value],
+        DressStatus::Active->value => [DressStatus::Reserved->value, DressStatus::Rented->value, DressStatus::Maintenance->value, DressStatus::Cleaning->value, DressStatus::Alteration->value, DressStatus::Retired->value],
         DressStatus::Reserved->value => [DressStatus::Rented->value, DressStatus::Active->value, DressStatus::Maintenance->value, DressStatus::Cleaning->value],
-        DressStatus::Rented->value => [DressStatus::Cleaning->value, DressStatus::Maintenance->value, DressStatus::Alteration->value, DressStatus::Active->value],
+        DressStatus::Rented->value => [DressStatus::Cleaning->value, DressStatus::Maintenance->value, DressStatus::Alteration->value, DressStatus::Active->value, DressStatus::Retired->value],
         DressStatus::Cleaning->value => [DressStatus::Active->value, DressStatus::Maintenance->value, DressStatus::Alteration->value],
         DressStatus::Maintenance->value => [DressStatus::Active->value, DressStatus::Retired->value],
         DressStatus::Alteration->value => [DressStatus::Active->value, DressStatus::Maintenance->value, DressStatus::Cleaning->value],
