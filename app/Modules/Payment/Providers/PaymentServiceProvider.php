@@ -6,8 +6,8 @@ namespace App\Modules\Payment\Providers;
 
 use App\Modules\Payment\Application\Services\PaymentService;
 use App\Modules\Payment\Domain\Contracts\PaymentContract;
-use App\Modules\Payment\Domain\Contracts\PaymentGateway;
-use App\Modules\Payment\Infrastructure\Gateway\UnconfiguredGatewayAdapter;
+use App\Modules\Payment\Domain\Contracts\PaymentGatewayContract;
+use App\Modules\Payment\Infrastructure\Gateways\GatewayFactory;
 use App\Modules\Payment\Infrastructure\Repositories\EloquentPaymentRepository;
 use App\Modules\Payment\Infrastructure\Repositories\PaymentRepository;
 use Illuminate\Support\ServiceProvider;
@@ -19,8 +19,9 @@ class PaymentServiceProvider extends ServiceProvider
         $this->app->bind(PaymentContract::class, PaymentService::class);
         $this->app->bind(PaymentRepository::class, EloquentPaymentRepository::class);
 
-        // Fail-closed default: a concrete gateway adapter is a Phase 8 decision.
-        $this->app->bind(PaymentGateway::class, UnconfiguredGatewayAdapter::class);
+        $this->app->bind(PaymentGatewayContract::class, function ($app): PaymentGatewayContract {
+            return $app->make(GatewayFactory::class)->resolve();
+        });
     }
 
     public function boot(): void

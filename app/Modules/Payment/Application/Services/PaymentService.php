@@ -4,257 +4,307 @@ declare(strict_types=1);
 
 namespace App\Modules\Payment\Application\Services;
 
-use App\Modules\Payment\Application\DTOs\PaymentInitiationDTO;
-use App\Modules\Payment\Application\DTOs\PaymentResultDTO;
+use App\Modules\Booking\Domain\Contracts\BookingOrchestratorContract;
+use App\Modules\Booking\Domain\Entities\Booking;
+use App\Modules\Booking\Domain\Enums\BookingStatus;
+use App\Modules\Payment\Application\DTOs\PaymentSessionDTO;
+use App\Modules\Payment\Application\DTOs\PaymentSessionResultDTO;
 use App\Modules\Payment\Domain\Contracts\PaymentContract;
-use App\Modules\Payment\Domain\Contracts\PaymentGateway;
+use App\Modules\Payment\Domain\Contracts\PaymentGatewayContract;
+use App\Modules\Payment\Domain\Entities\Transaction;
 use App\Modules\Payment\Domain\Enums\TransactionStatus;
 use App\Modules\Payment\Domain\Enums\TransactionType;
 use App\Modules\Payment\Domain\Events\PaymentCaptured;
 use App\Modules\Payment\Domain\Events\PaymentRefunded;
-use App\Modules\Payment\Domain\Exceptions\IdempotencyConflictException;
 use App\Modules\Payment\Domain\Exceptions\PaymentFailedException;
+use App\Modules\Payment\Domain\Exceptions\PaymentStateException;
 use App\Modules\Payment\Infrastructure\Repositories\PaymentRepository;
 use App\Modules\Pricing\Domain\ValueObjects\Money;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
+/**
+ * Payment orchestrator. Every financial mutation runs inside a transaction and
+ * is protected by a unique idempotency key; replays never create duplicate
+ * financial entries.
+ */
 class PaymentService implements PaymentContract
 {
     public function __construct(
         private readonly PaymentRepository $payments,
-        private readonly PaymentGateway $gateway,
+        private readonly PaymentGatewayContract $gateway,
+        private readonly BookingOrchestratorContract $bookings,
     ) {}
 
-    public function authorize(PaymentInitiationDTO $dto): PaymentResultDTO
+    public function initiateBookingPayment(int $bookingId, string $paymentMethod, string $returnUrl, string $idempotencyKey): PaymentSessionResultDTO
     {
-        $replay = $this->idempotencyResult($dto->idempotencyKey, 'authorize', $dto->amount);
+        return DB::transaction(function () use ($bookingId, $paymentMethod, $returnUrl, $idempotencyKey): PaymentSessionResultDTO {
+            $booking = $this->lockBooking($bookingId);
 
-        if ($replay !== null) {
-            return $replay;
-        }
+            if ($booking->status !== BookingStatus::PendingPayment) {
+                throw PaymentStateException::bookingNotPayable($bookingId, $booking->status->value);
+            }
 
-        $gatewayResponse = $this->gateway->authorize($dto);
+            $replay = $this->payments->findIdempotencyRecord($idempotencyKey);
 
-        $transactionId = $this->payments->storeTransaction([
-            'booking_id' => $dto->bookingId,
-            'user_id' => $dto->userId,
-            'atelier_id' => $dto->atelierId,
-            'type' => $dto->type,
-            'payment_method' => $dto->paymentMethod,
-            'status' => TransactionStatus::Authorized->value,
-            'amount' => $dto->amount->toMinorUnits(),
-            'currency' => $dto->amount->currency(),
-            'gateway_reference' => $gatewayResponse['gateway_reference'] ?? null,
-            'metadata' => $dto->metadata,
-        ]);
+            if ($replay !== null) {
+                $transaction = $this->payments->findTransaction((int) $replay['transaction_id']);
 
-        $this->payments->storeIdempotencyKey($dto->idempotencyKey, 'authorize', $transactionId);
+                return $this->replaySession($transaction);
+            }
 
-        return new PaymentResultDTO(
-            transactionId: $transactionId,
-            status: TransactionStatus::Authorized->value,
-            amount: $dto->amount,
-            gatewayReference: $gatewayResponse['gateway_reference'] ?? null,
-        );
+            $chargeable = $this->chargeableFor($booking);
+            $deposit = $this->depositFor($booking);
+
+            $transactionId = $this->payments->storeTransaction([
+                'booking_id' => $bookingId,
+                'user_id' => $booking->renter_id,
+                'atelier_id' => $booking->atelier_id,
+                'type' => TransactionType::RentalPayment->value,
+                'payment_method' => $paymentMethod,
+                'status' => TransactionStatus::Initiated->value,
+                'amount' => $chargeable->amount(),
+                'currency' => $booking->currency,
+                'idempotency_key' => $idempotencyKey,
+                'metadata_json' => ['stage' => 'initiated'],
+            ]);
+
+            $this->payments->storeIdempotencyKey($idempotencyKey, 'rental_payment', $transactionId);
+
+            $session = $this->gateway->createPaymentSession(new PaymentSessionDTO(
+                bookingId: $bookingId,
+                userId: $booking->renter_id,
+                atelierId: $booking->atelier_id,
+                amount: $chargeable,
+                paymentMethod: $paymentMethod,
+                returnUrl: $returnUrl,
+                idempotencyKey: $idempotencyKey,
+            ));
+
+            $status = $session->status === 'approved' ? TransactionStatus::Authorized->value : TransactionStatus::Initiated->value;
+            $this->payments->updateTransactionStatus($transactionId, $status, $session->gatewayReference);
+
+            // Distinct pre-authorization (card freeze) for the security deposit.
+            if (! $deposit->isZero()) {
+                $this->authorizeDepositHold($bookingId, $booking, $deposit, $paymentMethod, $idempotencyKey.'-deposit');
+            }
+
+            return new PaymentSessionResultDTO(
+                transactionId: $transactionId,
+                status: $session->status,
+                redirectUrl: $session->redirectUrl,
+                gatewayReference: $session->gatewayReference,
+                message: $session->message,
+            );
+        });
     }
 
-    public function capture(int $transactionId, string $idempotencyKey): PaymentResultDTO
+    public function handlePaymentSuccess(string $gatewayReference, string $idempotencyKey, array $payload = []): Transaction
     {
-        $transaction = $this->requireTransaction($transactionId);
-        $amount = $this->moneyFor($transaction);
+        return DB::transaction(function () use ($gatewayReference, $idempotencyKey): Transaction {
+            $transaction = $this->payments->findByGatewayReference($gatewayReference);
 
-        $replay = $this->idempotencyResult($idempotencyKey, 'capture', $amount);
+            if ($transaction === null) {
+                throw PaymentFailedException::gatewayError('Unknown gateway reference.');
+            }
 
-        if ($replay !== null) {
-            return $replay;
-        }
+            $transactionId = (int) $transaction['id'];
 
-        $gatewayResponse = $this->gateway->capture($transaction['gateway_reference'] ?? '', $amount);
+            if ($transaction['status'] === TransactionStatus::Captured->value) {
+                return $this->payments->findEntity($transactionId)
+                    ?? throw PaymentFailedException::gatewayError('Captured transaction not found.');
+            }
 
-        $this->payments->updateTransactionStatus($transactionId, TransactionStatus::Captured->value, $gatewayResponse['gateway_reference'] ?? null);
-        $this->payments->storeIdempotencyKey($idempotencyKey, 'capture', $transactionId);
+            $captureReplay = $this->payments->findIdempotencyRecord($idempotencyKey);
 
-        Event::dispatch(new PaymentCaptured($transactionId, (int) $transaction['booking_id']));
+            if ($captureReplay !== null && (int) $captureReplay['transaction_id'] === $transactionId) {
+                return $this->payments->findEntity($transactionId)
+                    ?? throw PaymentFailedException::gatewayError('Captured transaction not found.');
+            }
 
-        return new PaymentResultDTO(
-            transactionId: $transactionId,
-            status: TransactionStatus::Captured->value,
-            amount: $amount,
-            gatewayReference: $gatewayResponse['gateway_reference'] ?? null,
-        );
+            $amount = Money::fromDecimal($transaction['amount'], (string) $transaction['currency']);
+            $this->gateway->capturePayment($gatewayReference, $amount);
+
+            $this->payments->updateTransactionStatus($transactionId, TransactionStatus::Captured->value);
+            $this->payments->storeIdempotencyKey($idempotencyKey, 'capture', $transactionId);
+
+            $this->bookings->transitionStatus(
+                (int) $transaction['booking_id'],
+                BookingStatus::Confirmed,
+                ['actor_id' => null],
+            );
+
+            Event::dispatch(new PaymentCaptured($transactionId, (int) $transaction['booking_id']));
+
+            return $this->payments->findEntity($transactionId)
+                ?? throw PaymentFailedException::gatewayError('Captured transaction not found.');
+        });
     }
 
-    public function void(int $transactionId, string $idempotencyKey): PaymentResultDTO
+    public function handlePaymentFailure(string $gatewayReference, string $errorMessage): void
     {
-        $transaction = $this->requireTransaction($transactionId);
-        $amount = $this->moneyFor($transaction);
+        DB::transaction(function () use ($gatewayReference): void {
+            $transaction = $this->payments->findByGatewayReference($gatewayReference);
 
-        $replay = $this->idempotencyResult($idempotencyKey, 'void', $amount);
+            if ($transaction === null) {
+                return;
+            }
 
-        if ($replay !== null) {
-            return $replay;
-        }
-
-        $gatewayResponse = $this->gateway->void($transaction['gateway_reference'] ?? '');
-
-        $this->payments->updateTransactionStatus($transactionId, TransactionStatus::Voided->value, $gatewayResponse['gateway_reference'] ?? null);
-        $this->payments->storeIdempotencyKey($idempotencyKey, 'void', $transactionId);
-
-        return new PaymentResultDTO(
-            transactionId: $transactionId,
-            status: TransactionStatus::Voided->value,
-            amount: $amount,
-            gatewayReference: $gatewayResponse['gateway_reference'] ?? null,
-        );
+            $this->payments->updateTransactionStatus((int) $transaction['id'], TransactionStatus::Failed->value);
+        });
     }
 
-    public function refund(int $transactionId, Money $amount, string $idempotencyKey): PaymentResultDTO
+    public function processDepositSettlement(int $bookingId, Money $depositHeld, Money $deductionAmount, Money $refundAmount, string $idempotencyKey): void
     {
-        $transaction = $this->requireTransaction($transactionId);
+        DB::transaction(function () use ($bookingId, $deductionAmount, $refundAmount, $idempotencyKey): void {
+            if ($this->payments->findIdempotencyRecord($idempotencyKey) !== null) {
+                return;
+            }
 
-        $replay = $this->idempotencyResult($idempotencyKey, 'refund', $amount);
+            $depositTransaction = $this->payments->findLatestDepositAuthorization($bookingId);
 
-        if ($replay !== null) {
-            return $replay;
-        }
+            if ($depositTransaction === null) {
+                return;
+            }
 
-        $gatewayResponse = $this->gateway->refund($transaction['gateway_reference'] ?? '', $amount);
+            $authorizationRef = (string) ($depositTransaction['gateway_reference'] ?? '');
+            $user = $this->payments->findEntity((int) $depositTransaction['id'])?->user_id;
 
-        $this->payments->updateTransactionStatus($transactionId, TransactionStatus::Refunded->value, $gatewayResponse['gateway_reference'] ?? null);
-        $this->payments->storeIdempotencyKey($idempotencyKey, 'refund', $transactionId);
+            if (! $deductionAmount->isZero()) {
+                $this->gateway->captureDeposit($authorizationRef, $deductionAmount);
 
-        Event::dispatch(new PaymentRefunded($transactionId, (int) $transaction['booking_id']));
+                $this->payments->storeTransaction([
+                    'booking_id' => $bookingId,
+                    'user_id' => $user,
+                    'type' => TransactionType::DepositPenalty->value,
+                    'payment_method' => $depositTransaction['payment_method'] ?? null,
+                    'status' => TransactionStatus::Captured->value,
+                    'amount' => $deductionAmount->amount(),
+                    'currency' => $deductionAmount->currency(),
+                    'idempotency_key' => $idempotencyKey.'-penalty',
+                ]);
+            }
 
-        return new PaymentResultDTO(
-            transactionId: $transactionId,
-            status: TransactionStatus::Refunded->value,
-            amount: $amount,
-            gatewayReference: $gatewayResponse['gateway_reference'] ?? null,
-        );
+            if (! $refundAmount->isZero()) {
+                $this->gateway->releaseDeposit($authorizationRef);
+
+                $this->payments->storeTransaction([
+                    'booking_id' => $bookingId,
+                    'user_id' => $user,
+                    'type' => TransactionType::DepositRelease->value,
+                    'payment_method' => $depositTransaction['payment_method'] ?? null,
+                    'status' => TransactionStatus::Voided->value,
+                    'amount' => $refundAmount->amount(),
+                    'currency' => $refundAmount->currency(),
+                    'idempotency_key' => $idempotencyKey.'-release',
+                ]);
+
+                $this->payments->updateTransactionStatus((int) $depositTransaction['id'], TransactionStatus::Voided->value);
+            }
+
+            $this->payments->storeIdempotencyKey($idempotencyKey, 'deposit_settlement', (int) $depositTransaction['id']);
+        });
     }
 
-    public function holdDeposit(int $bookingId, Money $amount, string $idempotencyKey): PaymentResultDTO
+    public function processCustomerRefund(int $bookingId, Money $amount, string $reason, string $idempotencyKey): Transaction
     {
-        $replay = $this->idempotencyResult($idempotencyKey, 'hold_deposit', $amount);
+        return DB::transaction(function () use ($bookingId, $amount, $reason, $idempotencyKey): Transaction {
+            $replay = $this->payments->findIdempotencyRecord($idempotencyKey);
 
-        if ($replay !== null) {
-            return $replay;
+            if ($replay !== null) {
+                return $this->payments->findEntity((int) $replay['transaction_id'])
+                    ?? throw PaymentFailedException::gatewayError('Refund transaction not found.');
+            }
+
+            $rentalTransaction = $this->payments->findCapturedRentalForBooking($bookingId);
+
+            if ($rentalTransaction === null) {
+                throw PaymentFailedException::gatewayError('No captured rental payment to refund.');
+            }
+
+            $this->gateway->refundPayment(
+                (string) ($rentalTransaction['gateway_reference'] ?? ''),
+                $amount,
+                $reason,
+            );
+
+            $transactionId = $this->payments->storeTransaction([
+                'booking_id' => $bookingId,
+                'user_id' => $rentalTransaction['user_id'] ?? null,
+                'atelier_id' => $rentalTransaction['atelier_id'] ?? null,
+                'type' => TransactionType::CustomerRefund->value,
+                'payment_method' => $rentalTransaction['payment_method'] ?? null,
+                'status' => TransactionStatus::Refunded->value,
+                'amount' => $amount->amount(),
+                'currency' => $amount->currency(),
+                'idempotency_key' => $idempotencyKey,
+            ]);
+
+            $this->payments->storeIdempotencyKey($idempotencyKey, 'customer_refund', $transactionId);
+
+            Event::dispatch(new PaymentRefunded($transactionId, $bookingId));
+
+            return $this->payments->findEntity($transactionId)
+                ?? throw PaymentFailedException::gatewayError('Refund transaction not found.');
+        });
+    }
+
+    private function lockBooking(int $bookingId): Booking
+    {
+        $booking = Booking::query()->whereKey($bookingId)->lockForUpdate()->first();
+
+        if ($booking === null) {
+            throw PaymentFailedException::gatewayError(sprintf('Booking #%d not found.', $bookingId));
         }
 
-        $gatewayResponse = $this->gateway->authorize(new PaymentInitiationDTO(
-            bookingId: $bookingId,
-            userId: 0,
-            atelierId: 0,
-            amount: $amount,
-            type: TransactionType::DepositAuthorization->value,
-            paymentMethod: 'deposit',
-            idempotencyKey: $idempotencyKey,
-        ));
+        return $booking;
+    }
+
+    private function chargeableFor(Booking $booking): Money
+    {
+        $grandTotal = Money::fromDecimal($booking->grand_total, $booking->currency);
+        $deposit = Money::fromDecimal($booking->security_deposit_amount, $booking->currency);
+
+        return $grandTotal->subtract($deposit);
+    }
+
+    private function depositFor(Booking $booking): Money
+    {
+        return Money::fromDecimal($booking->security_deposit_amount, $booking->currency);
+    }
+
+    private function authorizeDepositHold(int $bookingId, Booking $booking, Money $amount, string $paymentMethod, string $idempotencyKey): void
+    {
+        if ($this->payments->findIdempotencyRecord($idempotencyKey) !== null) {
+            return;
+        }
+
+        $result = $this->gateway->authorizeDeposit($bookingId, $amount, $paymentMethod);
 
         $transactionId = $this->payments->storeTransaction([
             'booking_id' => $bookingId,
+            'user_id' => $booking->renter_id,
+            'atelier_id' => $booking->atelier_id,
             'type' => TransactionType::DepositAuthorization->value,
-            'payment_method' => 'deposit',
+            'payment_method' => $paymentMethod,
             'status' => TransactionStatus::Authorized->value,
-            'amount' => $amount->toMinorUnits(),
+            'amount' => $amount->amount(),
             'currency' => $amount->currency(),
-            'gateway_reference' => $gatewayResponse['gateway_reference'] ?? null,
+            'gateway_reference' => $result->gatewayReference,
+            'idempotency_key' => $idempotencyKey,
+            'metadata_json' => ['stage' => 'hold'],
         ]);
 
-        $this->payments->storeIdempotencyKey($idempotencyKey, 'hold_deposit', $transactionId);
-
-        return new PaymentResultDTO(
-            transactionId: $transactionId,
-            status: TransactionStatus::Authorized->value,
-            amount: $amount,
-            gatewayReference: $gatewayResponse['gateway_reference'] ?? null,
-        );
+        $this->payments->storeIdempotencyKey($idempotencyKey, 'deposit_authorization', $transactionId);
     }
 
-    public function releaseDeposit(int $transactionId, Money $amount, string $idempotencyKey): PaymentResultDTO
+    private function replaySession(?array $transaction): PaymentSessionResultDTO
     {
-        $transaction = $this->requireTransaction($transactionId);
-
-        $replay = $this->idempotencyResult($idempotencyKey, 'release_deposit', $amount);
-
-        if ($replay !== null) {
-            return $replay;
-        }
-
-        $gatewayResponse = $this->gateway->void($transaction['gateway_reference'] ?? '');
-
-        $this->payments->updateTransactionStatus($transactionId, TransactionStatus::Voided->value, $gatewayResponse['gateway_reference'] ?? null);
-        $this->payments->storeIdempotencyKey($idempotencyKey, 'release_deposit', $transactionId);
-
-        return new PaymentResultDTO(
-            transactionId: $transactionId,
-            status: TransactionStatus::Voided->value,
-            amount: $amount,
-            gatewayReference: $gatewayResponse['gateway_reference'] ?? null,
-        );
-    }
-
-    public function processWebhook(array $payload, string $signature): bool
-    {
-        if (! $this->gateway->verifyWebhookSignature($payload, $signature)) {
-            return false;
-        }
-
-        $eventId = (string) ($payload['event_id'] ?? '');
-
-        if ($this->payments->hasWebhookEvent($eventId)) {
-            return false;
-        }
-
-        $this->payments->storeWebhookEvent([
-            'gateway_event_id' => $eventId,
-            'type' => $payload['type'] ?? 'unknown',
-            'payload' => $payload,
-        ]);
-
-        return true;
-    }
-
-    private function idempotencyResult(string $key, string $operation, Money $amount): ?PaymentResultDTO
-    {
-        $record = $this->payments->findIdempotencyRecord($key);
-
-        if ($record === null) {
-            return null;
-        }
-
-        if ($record['operation'] !== $operation) {
-            throw IdempotencyConflictException::forKey($key, $operation);
-        }
-
-        $transaction = $this->payments->findTransaction((int) $record['transaction_id']);
-
-        return new PaymentResultDTO(
-            transactionId: (int) $record['transaction_id'],
-            status: $transaction['status'] ?? TransactionStatus::Captured->value,
-            amount: $transaction !== null ? $this->moneyFor($transaction) : $amount,
+        return new PaymentSessionResultDTO(
+            transactionId: (int) ($transaction['id'] ?? 0),
+            status: $transaction['status'] ?? TransactionStatus::Initiated->value,
             gatewayReference: $transaction['gateway_reference'] ?? null,
             isReplay: true,
         );
-    }
-
-    private function requireTransaction(int $transactionId): array
-    {
-        $transaction = $this->payments->findTransaction($transactionId);
-
-        if ($transaction === null) {
-            throw PaymentFailedException::gatewayError(sprintf('Transaction #%d not found.', $transactionId));
-        }
-
-        return $transaction;
-    }
-
-    private function moneyFor(array $transaction): Money
-    {
-        $amount = isset($transaction['amount']) && is_numeric($transaction['amount'])
-            ? $transaction['amount'] / 100
-            : 0;
-
-        return Money::fromDecimal((float) $amount, (string) ($transaction['currency'] ?? 'EGP'));
     }
 }

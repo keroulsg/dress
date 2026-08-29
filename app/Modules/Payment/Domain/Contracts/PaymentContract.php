@@ -4,34 +4,25 @@ declare(strict_types=1);
 
 namespace App\Modules\Payment\Domain\Contracts;
 
-use App\Modules\Payment\Application\DTOs\PaymentInitiationDTO;
-use App\Modules\Payment\Application\DTOs\PaymentResultDTO;
+use App\Modules\Payment\Application\DTOs\PaymentSessionResultDTO;
+use App\Modules\Payment\Domain\Entities\Transaction;
 use App\Modules\Pricing\Domain\ValueObjects\Money;
 
 /**
- * Public contract for the Payment module.
+ * Public service contract for the Payment module.
  *
- * Owns the payment gateway lifecycle: authorization, capture, void, refund,
- * partial refund, deposit hold/release/capture, and webhook reconciliation.
- * Every operation is idempotent via a unique idempotency key.
+ * Owns the two-step authorize/capture flow, deposit hold/release, refunds, and
+ * webhook reconciliation. Every financial mutation is idempotent.
  */
 interface PaymentContract
 {
-    public function authorize(PaymentInitiationDTO $dto): PaymentResultDTO;
+    public function initiateBookingPayment(int $bookingId, string $paymentMethod, string $returnUrl, string $idempotencyKey): PaymentSessionResultDTO;
 
-    public function capture(int $transactionId, string $idempotencyKey): PaymentResultDTO;
+    public function handlePaymentSuccess(string $gatewayReference, string $idempotencyKey, array $payload = []): Transaction;
 
-    public function void(int $transactionId, string $idempotencyKey): PaymentResultDTO;
+    public function handlePaymentFailure(string $gatewayReference, string $errorMessage): void;
 
-    public function refund(int $transactionId, Money $amount, string $idempotencyKey): PaymentResultDTO;
+    public function processDepositSettlement(int $bookingId, Money $depositHeld, Money $deductionAmount, Money $refundAmount, string $idempotencyKey): void;
 
-    public function holdDeposit(int $bookingId, Money $amount, string $idempotencyKey): PaymentResultDTO;
-
-    public function releaseDeposit(int $transactionId, Money $amount, string $idempotencyKey): PaymentResultDTO;
-
-    /**
-     * Processes an authenticated gateway webhook. Returns true when the event
-     * was applied, false when it was a duplicate replay.
-     */
-    public function processWebhook(array $payload, string $signature): bool;
+    public function processCustomerRefund(int $bookingId, Money $amount, string $reason, string $idempotencyKey): Transaction;
 }
