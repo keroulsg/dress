@@ -6,6 +6,7 @@ namespace App\Modules\Booking\Domain\Policies;
 
 use App\Modules\Atelier\Domain\Contracts\AtelierReader;
 use App\Modules\Booking\Domain\Entities\Booking;
+use App\Modules\Booking\Domain\Enums\BookingStatus;
 use App\Modules\Identity\Domain\Entities\User;
 
 class BookingPolicy
@@ -32,7 +33,11 @@ class BookingPolicy
         }
 
         if ($booking->renter_id === $user->id) {
-            return in_array($booking->status, ['pending_payment', 'confirmed', 'fitting_scheduled'], true);
+            return in_array($booking->status, [
+                BookingStatus::PendingPayment,
+                BookingStatus::Confirmed,
+                BookingStatus::FittingScheduled,
+            ], true);
         }
 
         return false;

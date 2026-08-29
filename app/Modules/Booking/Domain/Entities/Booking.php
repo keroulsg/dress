@@ -27,6 +27,7 @@ class Booking extends Model
 
     protected $fillable = [
         'booking_reference',
+        'client_token',
         'renter_id',
         'atelier_id',
         'fitting_datetime',

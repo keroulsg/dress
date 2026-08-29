@@ -22,7 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'verified' => EnsureUserIsVerified::class,
+            'kyc-verified' => EnsureUserIsVerified::class,
             'atelier' => EnsureBelongsToAtelier::class,
         ]);
     })
