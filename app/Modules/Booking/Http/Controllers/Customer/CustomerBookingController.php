@@ -65,6 +65,8 @@ class CustomerBookingController extends Controller
         return Inertia::render('Customer/Bookings/Show', [
             'booking' => [
                 ...$booking->toArray(),
+                'deposit_refunded_at' => $booking->deposit_refunded_at?->toIso8601String(),
+                'deposit_acknowledged_at' => $booking->deposit_acknowledged_at?->toIso8601String(),
                 'atelier' => $atelierPayload,
                 'items' => $booking->items->map(fn ($item): array => [
                     'dress_title' => $item->dress?->title,
@@ -108,6 +110,27 @@ class CustomerBookingController extends Controller
         }
 
         return back()->with('success', 'تم تجميد مستحقات المتجر وفتح شكوى رسمية للإدارة المركزية للتحقيق الفوري.');
+    }
+
+    public function acknowledgeDeposit(Request $request, Booking $booking): RedirectResponse
+    {
+        $this->authorize('view', $booking);
+
+        if ($booking->renter_id !== (int) $request->user()->id) {
+            abort(403, 'غير مصرح لك بتأكيد هذا الحجز.');
+        }
+
+        $booking->deposit_acknowledged_at = now();
+        $booking->save();
+
+        if ($booking->status !== BookingStatus::Completed) {
+            $this->bookings->transitionStatus($booking->id, BookingStatus::Completed, [
+                'actor_id' => (int) $request->user()->id,
+                'reason' => 'إقرار رسمي من العميلة باستلام واسترداد مبلغ التأمين بالكامل.',
+            ]);
+        }
+
+        return back()->with('success', 'تم تسجيل إقرار استلام التأمين بنجاح وإغلاق الحجز كعملية مكتملة وموثقة.');
     }
 
     private function toCard(Booking $booking): array

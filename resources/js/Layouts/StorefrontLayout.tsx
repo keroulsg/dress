@@ -37,20 +37,24 @@ export default function StorefrontLayout({ children }: PropsWithChildren) {
                             </ul>
                         </nav>
                         <nav aria-label="Footer — support">
-                            <p className="text-xs font-semibold uppercase tracking-luxe text-stone-muted dark:text-stone-500">Support</p>
+                            <p className="text-xs font-semibold uppercase tracking-luxe text-stone-muted dark:text-stone-500">Legal & Support</p>
                             <ul className="mt-3 space-y-2 text-sm">
-                                <li><Link href="/how-it-works" className="text-charcoal dark:text-stone-300 transition-colors hover:text-rose dark:hover:text-rose-400">How it works</Link></li>
-                                <li><Link href="/fittings" className="text-charcoal dark:text-stone-300 transition-colors hover:text-rose dark:hover:text-rose-400">Fittings</Link></li>
-                                <li><Link href="/terms" className="text-charcoal dark:text-stone-300 transition-colors hover:text-rose dark:hover:text-rose-400">شروط الاستخدام والضمان</Link></li>
-                                <li><Link href="/privacy" className="text-charcoal dark:text-stone-300 transition-colors hover:text-rose dark:hover:text-rose-400">سياسة الخصوصية</Link></li>
+                                <li><Link href="/terms" className="text-charcoal dark:text-stone-300 transition-colors hover:text-rose dark:hover:text-rose-400">الشروط والأحكام (Terms)</Link></li>
+                                <li><Link href="/privacy" className="text-charcoal dark:text-stone-300 transition-colors hover:text-rose dark:hover:text-rose-400">سياسة الخصوصية (Privacy)</Link></li>
+                                <li><Link href="/refund-policy" className="text-charcoal dark:text-stone-300 transition-colors hover:text-rose dark:hover:text-rose-400">سياسة الاسترجاع والإلغاء (Refund Policy)</Link></li>
+                                <li><Link href="/shipping-policy" className="text-charcoal dark:text-stone-300 transition-colors hover:text-rose dark:hover:text-rose-400">سياسة التسليم والاستلام (Shipping & Pickup)</Link></li>
+                                <li><Link href="/contact" className="text-charcoal dark:text-stone-300 transition-colors hover:text-rose dark:hover:text-rose-400">اتصل بنا والدعم (Contact Us)</Link></li>
                             </ul>
                         </nav>
                     </div>
                     <div className="border-t border-stone-line dark:border-stone-800 px-4 py-5 flex flex-col sm:flex-row justify-between items-center max-w-7xl mx-auto lg:px-8 text-xs text-stone-muted dark:text-stone-500 gap-2">
                         <p>© {new Date().getFullYear()} Maison Rentale. جميع الحقوق محفوظة — منصة الموضة والأناقة الفاخرة.</p>
-                        <div className="flex gap-4">
+                        <div className="flex flex-wrap gap-4 text-center justify-center">
                             <Link href="/terms" className="hover:text-rose dark:hover:text-rose-400 underline">الشروط والأحكام</Link>
-                            <Link href="/privacy" className="hover:text-rose dark:hover:text-rose-400 underline">الخصوصية والبيانات</Link>
+                            <Link href="/privacy" className="hover:text-rose dark:hover:text-rose-400 underline">الخصوصية</Link>
+                            <Link href="/refund-policy" className="hover:text-rose dark:hover:text-rose-400 underline">الاسترجاع والإلغاء</Link>
+                            <Link href="/shipping-policy" className="hover:text-rose dark:hover:text-rose-400 underline">الشحن والتسليم</Link>
+                            <Link href="/contact" className="hover:text-rose dark:hover:text-rose-400 underline">اتصل بنا</Link>
                         </div>
                     </div>
                 </footer>

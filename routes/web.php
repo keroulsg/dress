@@ -10,6 +10,10 @@ use Inertia\Inertia;
 
 Route::get('/terms', [LegalController::class, 'terms'])->name('legal.terms');
 Route::get('/privacy', [LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('/refund-policy', [LegalController::class, 'refundPolicy'])->name('legal.refund-policy');
+Route::get('/shipping-policy', [LegalController::class, 'shippingPolicy'])->name('legal.shipping-policy');
+Route::get('/contact', [LegalController::class, 'contact'])->name('legal.contact');
+Route::post('/contact', [LegalController::class, 'submitContact'])->name('legal.contact.submit');
 
 Route::get('/foundation', function () {
     return Inertia::render('Foundation');

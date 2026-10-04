@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import type { PageProps } from '@/types';
 
 import { BookingTimeline } from '@/Modules/Booking';
@@ -11,6 +11,7 @@ import { Textarea } from '@/Components/UI/Textarea';
 import CustomerLayout from '@/Layouts/CustomerLayout';
 import { useLanguage } from '@/Contexts/LanguageContext';
 import {
+    AlertCircle,
     CheckCircle2,
     ExternalLink,
     Lock,
@@ -18,6 +19,7 @@ import {
     MessageCircle,
     Phone,
     QrCode,
+    Receipt,
     ShieldCheck,
     Store,
     Wallet,
@@ -32,6 +34,9 @@ type BookingsShowProps = PageProps<{
         fitting_datetime: string | null;
         start_date: string | null;
         end_date: string | null;
+        deposit_refunded_at?: string | null;
+        deposit_acknowledged_at?: string | null;
+        deposit_disputed?: boolean;
         grand_total: string;
         currency: string;
         rental_rate_total: string;
@@ -63,7 +68,16 @@ const CANCELLABLE = ['pending_payment', 'confirmed', 'fitting_scheduled', 'ready
 export default function BookingsShow({ booking }: BookingsShowProps) {
     const { t, tr, isRtl } = useLanguage();
     const [cancelOpen, setCancelOpen] = useState(false);
+    const [isAcknowledging, setIsAcknowledging] = useState(false);
     const cancelForm = useForm({ reason: '' });
+
+    const handleAcknowledgeDeposit = () => {
+        setIsAcknowledging(true);
+        router.post(`/account/bookings/${booking.id}/acknowledge-deposit`, {}, {
+            preserveScroll: true,
+            onFinish: () => setIsAcknowledging(false),
+        });
+    };
 
     const submitCancel = (): void => {
         cancelForm.post(`/account/bookings/${booking.id}/cancel`, {
@@ -119,6 +133,87 @@ export default function BookingsShow({ booking }: BookingsShowProps) {
                 <div className="grid gap-8 lg:grid-cols-5 items-start">
                     {/* Left Column: Timeline & Atelier Contact */}
                     <div className="lg:col-span-3 space-y-6">
+                        {/* Deposit Fully Acknowledged Receipt */}
+                        {booking.deposit_acknowledged_at && (
+                            <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/30 p-5 shadow-xs flex items-start gap-4">
+                                <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                                    <CheckCircle2 className="h-6 w-6" />
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-bold text-sm text-emerald-900 dark:text-emerald-200">
+                                            {tr('إيصال استرداد التأمين موثق رسمياً ✓', 'Security Deposit Refund Acknowledged ✓')}
+                                        </h4>
+                                        <span className="font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                                            {formatCurrency(booking.security_deposit_amount, booking.currency)}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                                        {tr(
+                                            'أقررتِ رسمياً باستلام كامل مبلغ التأمين النقدي من المتجر، وتم إغلاق دورة الحجز وتأمين العملية بنجاح.',
+                                            'You have officially acknowledged receipt of the full security deposit. The contract cycle is safely completed.'
+                                        )}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-4 pt-1 text-[11px] text-emerald-700/80 dark:text-emerald-400">
+                                        <span>
+                                            {tr('تاريخ توثيق العميلة:', 'Acknowledged:')}{' '}
+                                            <span className="font-mono">{new Date(booking.deposit_acknowledged_at).toLocaleDateString()}</span>
+                                        </span>
+                                        {booking.deposit_refunded_at && (
+                                            <span>
+                                                {tr('تاريخ رد المتجر:', 'Refunded by Atelier:')}{' '}
+                                                <span className="font-mono">{new Date(booking.deposit_refunded_at).toLocaleDateString()}</span>
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Deposit Acknowledgment Pending Action */}
+                        {booking.deposit_refunded_at && !booking.deposit_acknowledged_at && (
+                            <div className="rounded-2xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-950/40 p-5 shadow-md space-y-3">
+                                <div className="flex items-start gap-3">
+                                    <div className="h-10 w-10 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 flex items-center justify-center shrink-0">
+                                        <Receipt className="h-5 w-5" />
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="font-bold text-sm text-stone-900 dark:text-stone-100">
+                                                {tr('سجل المتجر إعادة مبلغ التأمين كاملاً', 'Atelier Recorded Full Deposit Refund')}
+                                            </h4>
+                                            <span className="font-mono font-bold text-sm text-amber-900 dark:text-amber-200">
+                                                {formatCurrency(booking.security_deposit_amount, booking.currency)}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+                                            {tr(
+                                                'قام الأتيليه بتأكيد رد مبلغ التأمين إليكِ نقداً أو تحويلاً. لإغلاق دورة الحجز وتأكيد حقوق الطرفين، يرجى الضغط على زر الإقرار أدناه فور استلام المبلغ كاملاً.',
+                                                'The atelier reported that your security deposit has been fully returned. Please acknowledge receipt to complete the contract verification.'
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-amber-200 dark:border-amber-900/50">
+                                    <div className="text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                                        <ShieldCheck className="h-4 w-4 shrink-0 text-amber-600" />
+                                        <span>{tr('إجراء إلزامي لتوثيق دورة المعاملة الثنائية', 'Mandatory two-way contract closure')}</span>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="champagne"
+                                        size="sm"
+                                        onClick={handleAcknowledgeDeposit}
+                                        disabled={isAcknowledging}
+                                        className="w-full sm:w-auto font-bold text-xs shadow-sm"
+                                    >
+                                        <CheckCircle2 className={cn("h-4 w-4", isRtl ? "ml-1.5" : "mr-1.5")} />
+                                        {isAcknowledging ? tr('جاري التوثيق…', 'Confirming…') : tr('أقر باستلام مبلغ التأمين كاملاً', 'I Acknowledge Receipt of Full Deposit')}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Timeline */}
                         <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 p-6 shadow-xs">
                             <h3 className="font-serif text-lg font-bold text-stone-900 dark:text-stone-100 mb-4">

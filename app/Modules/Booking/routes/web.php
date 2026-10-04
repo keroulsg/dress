@@ -22,6 +22,7 @@ Route::middleware(['web', 'auth'])->prefix('/account')->name('customer.')->group
     Route::get('/bookings/{booking}', [CustomerBookingController::class, 'show'])->name('bookings.show');
     Route::post('/bookings/{booking}/cancel', [CustomerBookingController::class, 'cancel'])->name('bookings.cancel');
     Route::post('/bookings/{booking}/flag-deposit-withheld', [CustomerBookingController::class, 'flagDepositWithheld'])->name('bookings.flagDepositWithheld');
+    Route::post('/bookings/{booking}/acknowledge-deposit', [CustomerBookingController::class, 'acknowledgeDeposit'])->name('bookings.acknowledgeDeposit');
 });
 
 Route::middleware(['web', 'auth', 'atelier'])->prefix('/atelier/{atelier}')->name('atelier.')->group(function (): void {
