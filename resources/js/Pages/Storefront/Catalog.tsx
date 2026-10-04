@@ -16,10 +16,11 @@ import {
     Check,
     RotateCcw,
     ShieldCheck,
+    MapPin,
 } from 'lucide-react';
 import { Button } from '@/Components/UI/Button';
 
-export default function Catalog({ dresses, filters, categories = [] }: any) {
+export default function Catalog({ dresses, filters, categories = [], governorates = [] }: any) {
     const { tr, locale } = useLanguage();
     const isRtl = locale === 'ar';
     const [isWishlistOpen, setIsWishlistOpen] = useState(false);
@@ -45,6 +46,8 @@ export default function Catalog({ dresses, filters, categories = [] }: any) {
 
     const activeFilterCount = [
         filters.category,
+        filters.governorate,
+        filters.city,
         filters.mode,
         filters.start_date,
         filters.end_date,
@@ -116,6 +119,27 @@ export default function Catalog({ dresses, filters, categories = [] }: any) {
                                 {isRtl ? c.labelAr : c.labelEn}
                             </option>
                         ))}
+                </select>
+            </div>
+
+            {/* Governorate Filter */}
+            <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-stone-900 dark:text-stone-100 mb-3 pb-2 border-b border-stone-100 dark:border-stone-800 flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-amber-600" />
+                    <span>{tr('المحافظة وموقع القطعة', 'Governorate & Location')}</span>
+                </h4>
+                <select
+                    name="governorate"
+                    value={filters.governorate || ''}
+                    onChange={handleFilterChange}
+                    className="w-full rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 p-2.5 text-xs text-stone-900 dark:text-stone-100 focus:border-amber-600 focus:outline-none"
+                >
+                    <option value="">{tr('جميع المحافظات (كل مصر)', 'All Governorates (All Egypt)')}</option>
+                    {governorates.map((gov: any) => (
+                        <option key={gov.value} value={gov.value}>
+                            {isRtl ? gov.name_ar : gov.name_en}
+                        </option>
+                    ))}
                 </select>
             </div>
 
@@ -355,9 +379,22 @@ export default function Catalog({ dresses, filters, categories = [] }: any) {
                                         </div>
 
                                         <div className="space-y-1.5">
-                                            <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">
-                                                {dress.atelier?.business_name || dress.atelier?.name || 'Maison Atelier'}
-                                            </p>
+                                            <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                                                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider truncate">
+                                                    {dress.atelier?.business_name || dress.atelier?.name || 'Maison Atelier'}
+                                                </p>
+                                                {(dress.city || dress.governorate || dress.atelier?.city || dress.atelier?.governorate) && (
+                                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200/60 dark:border-amber-900/40 shrink-0">
+                                                        <span>📍</span>
+                                                        <span>
+                                                            {[
+                                                                dress.city || dress.atelier?.city,
+                                                                dress.governorate || dress.atelier?.governorate,
+                                                            ].filter(Boolean).join('، ')}
+                                                        </span>
+                                                    </span>
+                                                )}
+                                            </div>
                                             <h3 className="font-serif text-sm sm:text-base font-bold text-stone-900 dark:text-stone-100 line-clamp-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                                                 {dress.title}
                                             </h3>

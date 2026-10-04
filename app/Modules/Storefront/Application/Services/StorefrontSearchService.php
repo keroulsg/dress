@@ -4,6 +4,7 @@ namespace App\Modules\Storefront\Application\Services;
 
 use App\Modules\Availability\Domain\Contracts\AvailabilityContract;
 use App\Modules\Catalog\Domain\Entities\Dress;
+use App\Modules\Catalog\Domain\Enums\EgyptianGovernorate;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -49,6 +50,40 @@ class StorefrontSearchService
             } elseif ($filters['mode'] === 'rent') {
                 $query->where('allows_rent', true);
             }
+        }
+
+        if (! empty($filters['governorate'])) {
+            $rawGovs = is_array($filters['governorate']) ? $filters['governorate'] : [$filters['governorate']];
+            $normalizedGovs = [];
+            foreach ($rawGovs as $g) {
+                if ($g = trim((string) $g)) {
+                    $norm = EgyptianGovernorate::normalize($g) ?? $g;
+                    $normalizedGovs[] = $norm;
+                    $normalizedGovs[] = $g;
+                }
+            }
+            $normalizedGovs = array_values(array_unique($normalizedGovs));
+
+            if (! empty($normalizedGovs)) {
+                $query->where(function (Builder $q) use ($normalizedGovs) {
+                    $q->whereIn('governorate', $normalizedGovs)
+                        ->orWhere(function (Builder $fallback) use ($normalizedGovs) {
+                            $fallback->whereNull('governorate')
+                                ->whereHas('atelier', fn (Builder $aq) => $aq->whereIn('governorate', $normalizedGovs));
+                        });
+                });
+            }
+        }
+
+        if (! empty($filters['city'])) {
+            $city = trim((string) $filters['city']);
+            $query->where(function (Builder $q) use ($city) {
+                $q->where('city', 'like', "%{$city}%")
+                    ->orWhere(function (Builder $fallback) use ($city) {
+                        $fallback->whereNull('city')
+                            ->whereHas('atelier', fn (Builder $aq) => $aq->where('city', 'like', "%{$city}%"));
+                    });
+            });
         }
 
         if (! empty($filters['size'])) {

@@ -20,6 +20,8 @@ export interface DressCardDress {
     status: string;
     condition_rating: string;
     available_sizes: string[];
+    city?: string | null;
+    governorate?: string | null;
 }
 
 export interface DressCardProps {
@@ -114,6 +116,12 @@ export function DressCard({
                         <p className="truncate text-xs uppercase tracking-luxe text-stone-muted">{dress.atelier_name}</p>
                         <Badge tone={dressStatusTone(dress.status)}>{status.label}</Badge>
                     </div>
+                    {(dress.city || dress.governorate) ? (
+                        <p className="text-xs text-stone-500 flex items-center gap-1">
+                            <span>📍</span>
+                            <span>{[dress.city, dress.governorate].filter(Boolean).join('، ')}</span>
+                        </p>
+                    ) : null}
                     <Link
                         href={target}
                         className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose"

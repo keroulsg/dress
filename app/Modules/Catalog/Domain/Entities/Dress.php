@@ -31,6 +31,9 @@ class Dress extends Model
         'fabric_type',
         'silhouette',
         'color_primary',
+        'governorate',
+        'city',
+        'available_for_intercity_shipping',
         'original_retail_value',
         'rental_price_per_day',
         'security_deposit_amount',
@@ -45,9 +48,15 @@ class Dress extends Model
         'published_at',
     ];
 
+    protected $appends = [
+        'governorate',
+        'city',
+    ];
+
     protected function casts(): array
     {
         return [
+            'available_for_intercity_shipping' => 'boolean',
             'original_retail_value' => 'decimal:2',
             'rental_price_per_day' => 'decimal:2',
             'security_deposit_amount' => 'decimal:2',
@@ -61,6 +70,16 @@ class Dress extends Model
             'status' => 'string',
             'published_at' => 'datetime',
         ];
+    }
+
+    public function getGovernorateAttribute(?string $value): ?string
+    {
+        return $value ?: $this->atelier?->governorate;
+    }
+
+    public function getCityAttribute(?string $value): ?string
+    {
+        return $value ?: $this->atelier?->city;
     }
 
     public function atelier(): BelongsTo

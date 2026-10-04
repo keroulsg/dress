@@ -28,6 +28,7 @@ class Atelier extends Model
         'description',
         'address',
         'city',
+        'governorate',
         'latitude',
         'longitude',
         'phone',

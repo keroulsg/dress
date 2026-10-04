@@ -10,6 +10,7 @@ use App\Modules\Catalog\Application\DTOs\UpdateDressDTO;
 use App\Modules\Catalog\Domain\Contracts\CatalogReader;
 use App\Modules\Catalog\Domain\Contracts\DressManagementContract;
 use App\Modules\Catalog\Domain\Entities\Dress;
+use App\Modules\Catalog\Domain\Enums\EgyptianGovernorate;
 use App\Modules\Catalog\Http\Requests\StoreDressRequest;
 use App\Modules\Catalog\Http\Requests\UpdateDressRequest;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -43,8 +44,14 @@ class DressManagementController extends Controller
     public function create(Atelier $atelier): Response
     {
         return Inertia::render('Atelier/Dresses/Create', [
-            'atelier' => ['id' => $atelier->id, 'business_name' => $atelier->business_name],
+            'atelier' => [
+                'id' => $atelier->id,
+                'business_name' => $atelier->business_name,
+                'city' => $atelier->city,
+                'governorate' => $atelier->governorate,
+            ],
             'categories' => $this->catalog->getActiveCategories(),
+            'governorates' => EgyptianGovernorate::options(),
         ]);
     }
 
@@ -57,6 +64,9 @@ class DressManagementController extends Controller
             fabricType: $request->input('fabric_type'),
             silhouette: $request->input('silhouette'),
             colorPrimary: $request->input('color_primary'),
+            governorate: $request->filled('governorate') ? (string) $request->input('governorate') : null,
+            city: $request->filled('city') ? (string) $request->input('city') : null,
+            availableForIntercityShipping: $request->boolean('available_for_intercity_shipping', true),
             originalRetailValue: (float) ($request->input('original_retail_value', 0)),
             rentalPricePerDay: (float) ($request->input('rental_price_per_day', 0)),
             securityDepositAmount: (float) ($request->input('security_deposit_amount', 0)),
@@ -83,13 +93,22 @@ class DressManagementController extends Controller
         $this->authorize('update', $dress);
 
         return Inertia::render('Atelier/Dresses/Edit', [
-            'atelier' => ['id' => $atelier->id, 'business_name' => $atelier->business_name],
+            'atelier' => [
+                'id' => $atelier->id,
+                'business_name' => $atelier->business_name,
+                'city' => $atelier->city,
+                'governorate' => $atelier->governorate,
+            ],
             'categories' => $this->catalog->getActiveCategories(),
+            'governorates' => EgyptianGovernorate::options(),
             'dress' => [
                 'id' => $dress->id,
                 'title' => $dress->title,
                 'category_id' => $dress->category_id,
                 'product_type' => $dress->product_type ?? 'dress',
+                'governorate' => $dress->governorate,
+                'city' => $dress->city,
+                'available_for_intercity_shipping' => (bool) $dress->available_for_intercity_shipping,
                 'allows_rent' => (bool) $dress->allows_rent,
                 'allows_sale' => (bool) $dress->allows_sale,
                 'description' => $dress->description,
@@ -134,6 +153,9 @@ class DressManagementController extends Controller
             fabricType: $request->input('fabric_type'),
             silhouette: $request->input('silhouette'),
             colorPrimary: $request->input('color_primary'),
+            governorate: $request->has('governorate') ? $request->input('governorate') : null,
+            city: $request->has('city') ? $request->input('city') : null,
+            availableForIntercityShipping: $request->has('available_for_intercity_shipping') ? $request->boolean('available_for_intercity_shipping') : null,
             originalRetailValue: $request->filled('original_retail_value') ? (float) $request->input('original_retail_value') : null,
             rentalPricePerDay: $request->filled('rental_price_per_day') ? (float) $request->input('rental_price_per_day') : null,
             securityDepositAmount: $request->filled('security_deposit_amount') ? (float) $request->input('security_deposit_amount') : null,

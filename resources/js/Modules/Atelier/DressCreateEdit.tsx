@@ -32,6 +32,36 @@ const STEPS = [
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 
+const DEFAULT_GOVERNORATES = [
+    { value: 'Cairo', name_ar: 'القاهرة', name_en: 'Cairo' },
+    { value: 'Giza', name_ar: 'الجيزة', name_en: 'Giza' },
+    { value: 'Alexandria', name_ar: 'الإسكندرية', name_en: 'Alexandria' },
+    { value: 'Gharbia', name_ar: 'الغربية', name_en: 'Gharbia' },
+    { value: 'Dakahlia', name_ar: 'الدقهلية', name_en: 'Dakahlia' },
+    { value: 'Qalyubia', name_ar: 'القليوبية', name_en: 'Qalyubia' },
+    { value: 'Sharqia', name_ar: 'الشرقية', name_en: 'Sharqia' },
+    { value: 'Monufia', name_ar: 'المنوفية', name_en: 'Monufia' },
+    { value: 'Beheira', name_ar: 'البحيرة', name_en: 'Beheira' },
+    { value: 'Kafr El Sheikh', name_ar: 'كفر الشيخ', name_en: 'Kafr El Sheikh' },
+    { value: 'Damietta', name_ar: 'دمياط', name_en: 'Damietta' },
+    { value: 'Port Said', name_ar: 'بورسعيد', name_en: 'Port Said' },
+    { value: 'Ismailia', name_ar: 'الإسماعيلية', name_en: 'Ismailia' },
+    { value: 'Suez', name_ar: 'السويس', name_en: 'Suez' },
+    { value: 'Fayoum', name_ar: 'الفيوم', name_en: 'Fayoum' },
+    { value: 'Beni Suef', name_ar: 'بني سويف', name_en: 'Beni Suef' },
+    { value: 'Minya', name_ar: 'المنيا', name_en: 'Minya' },
+    { value: 'Asyut', name_ar: 'أسيوط', name_en: 'Asyut' },
+    { value: 'Sohag', name_ar: 'سوهاج', name_en: 'Sohag' },
+    { value: 'Qena', name_ar: 'قنا', name_en: 'Qena' },
+    { value: 'Luxor', name_ar: 'الأقصر', name_en: 'Luxor' },
+    { value: 'Aswan', name_ar: 'أسوان', name_en: 'Aswan' },
+    { value: 'Red Sea', name_ar: 'البحر الأحمر', name_en: 'Red Sea' },
+    { value: 'South Sinai', name_ar: 'جنوب سيناء', name_en: 'South Sinai' },
+    { value: 'North Sinai', name_ar: 'شمال سيناء', name_en: 'North Sinai' },
+    { value: 'Matrouh', name_ar: 'مطروح', name_en: 'Matrouh' },
+    { value: 'New Valley', name_ar: 'الوادي الجديد', name_en: 'New Valley' },
+];
+
 interface SizeRow {
     size_code: string;
     bust: string;
@@ -51,6 +81,9 @@ interface DressFormData {
     title: string;
     category_id: string;
     product_type: string;
+    governorate: string;
+    city: string;
+    available_for_intercity_shipping: boolean;
     description: string;
     fabric_type: string;
     silhouette: string;
@@ -72,13 +105,17 @@ type DressFormErrors = Partial<Record<keyof DressFormData, string>>;
 
 export interface DressCreateEditProps {
     mode: 'create' | 'edit';
-    atelier: { id: number; business_name: string };
+    atelier: { id: number; business_name: string; city?: string | null; governorate?: string | null };
     categories: { id: number; name: string }[];
+    governorates?: Array<{ value: string; name_ar: string; name_en: string }>;
     dress?: {
         id: number;
         title: string;
         category_id: number;
         product_type?: string;
+        governorate?: string | null;
+        city?: string | null;
+        available_for_intercity_shipping?: boolean;
         description: string | null;
         fabric_type: string | null;
         silhouette: string | null;
@@ -165,7 +202,7 @@ function validateStep(step: number, data: DressFormData): DressFormErrors {
     return {};
 }
 
-export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreateEditProps) {
+export function DressCreateEdit({ mode, atelier, categories, governorates, dress }: DressCreateEditProps) {
     const { tr } = useLanguage();
     const [step, setStep] = useState(0);
     const [stepErrors, setStepErrors] = useState<DressFormErrors>({});
@@ -177,6 +214,9 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
         title: dress?.title ?? '',
         category_id: dress ? String(dress.category_id) : '',
         product_type: dress?.product_type ?? 'dress',
+        governorate: dress?.governorate || atelier?.governorate || 'Cairo',
+        city: dress?.city || atelier?.city || 'New Cairo',
+        available_for_intercity_shipping: dress?.available_for_intercity_shipping ?? true,
         description: dress?.description ?? '',
         fabric_type: dress?.fabric_type ?? '',
         silhouette: dress?.silhouette ?? '',
@@ -443,6 +483,59 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
                                     ))}
                                 </Select>
                                 <FieldError message={stepErrors.condition_rating ?? form.errors.condition_rating} />
+                            </div>
+                        </div>
+
+                        {/* Location & Intercity Shipping Box */}
+                        <div className="rounded-2xl border border-stone-200 dark:border-stone-800 bg-stone-50/60 dark:bg-stone-900/60 p-4 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className="font-bold text-xs uppercase tracking-wider text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                                    <span>📍</span>
+                                    <span>{tr('موقع تواجد واستلام القطعة', 'Garment Location & Branch')}</span>
+                                </h4>
+                                <span className="text-[11px] text-stone-400">
+                                    {tr('افتراضياً من بيانات الأتيليه مع إمكانية التعديل', 'Defaulted from atelier settings')}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <FieldLabel htmlFor="governorate">{tr('المحافظة (Governorate)', 'Governorate')}</FieldLabel>
+                                    <Select
+                                        id="governorate"
+                                        value={form.data.governorate}
+                                        onChange={(event) => form.setData('governorate', event.target.value)}
+                                    >
+                                        {(governorates || DEFAULT_GOVERNORATES).map((gov: { value: string; name_ar: string; name_en: string }) => (
+                                            <option key={gov.value} value={gov.value}>
+                                                {gov.name_ar} ({gov.name_en})
+                                            </option>
+                                        ))}
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <FieldLabel htmlFor="city">{tr('المدينة / المنطقة / الحي', 'City / Area')}</FieldLabel>
+                                    <Input
+                                        id="city"
+                                        value={form.data.city}
+                                        onChange={(event) => form.setData('city', event.target.value)}
+                                        placeholder={tr('مثال: التجمع الخامس، طنطا، سموحة...', 'e.g. New Cairo, Tanta, Smouha...')}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="pt-2 flex items-center gap-2.5">
+                                <input
+                                    type="checkbox"
+                                    id="available_for_intercity_shipping"
+                                    checked={form.data.available_for_intercity_shipping}
+                                    onChange={(e) => form.setData('available_for_intercity_shipping', e.target.checked)}
+                                    className="h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500"
+                                />
+                                <label htmlFor="available_for_intercity_shipping" className="text-xs font-medium text-stone-700 dark:text-stone-300 cursor-pointer">
+                                    {tr('متاح للشحن لكافة المحافظات المصرية', 'Available for Intercity Shipping across Egypt')}
+                                </label>
                             </div>
                         </div>
 

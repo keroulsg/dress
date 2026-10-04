@@ -231,9 +231,22 @@ export default function Home({ trending = [], featuredAteliers = [] }: any) {
                             </div>
                             <div className="flex justify-between items-start gap-2">
                                 <div>
-                                    <p className="text-[11px] text-stone-400 uppercase tracking-wider mb-0.5">
-                                        {dress.atelier?.business_name || dress.atelier?.name || 'Maison Atelier'}
-                                    </p>
+                                    <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                        <p className="text-[11px] text-stone-400 uppercase tracking-wider">
+                                            {dress.atelier?.business_name || dress.atelier?.name || 'Maison Atelier'}
+                                        </p>
+                                        {(dress.city || dress.governorate || dress.atelier?.city || dress.atelier?.governorate) && (
+                                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-200/60 dark:border-amber-900/40">
+                                                <span>📍</span>
+                                                <span>
+                                                    {[
+                                                        dress.city || dress.atelier?.city,
+                                                        dress.governorate || dress.atelier?.governorate,
+                                                    ].filter(Boolean).join('، ')}
+                                                </span>
+                                            </span>
+                                        )}
+                                    </div>
                                     <h4 className="font-serif text-base text-stone-900 dark:text-stone-100 line-clamp-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                                         {dress.title}
                                     </h4>
