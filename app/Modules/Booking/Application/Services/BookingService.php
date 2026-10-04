@@ -64,29 +64,80 @@ class BookingService implements BookingOrchestratorContract
         return DB::transaction(function () use ($dto): Booking {
             $renter = User::query()->find($dto->renterId);
 
-            if ($renter === null || $renter->role !== 'renter') {
+            if ($renter === null) {
                 throw BookingCheckoutException::ineligibleRenter();
             }
 
-            if (! $this->kyc->isUserVerified($dto->renterId)) {
-                throw BookingCheckoutException::kycRequired();
+            $dress = $this->catalog->getDressSnapshot($dto->dressId);
+            $isDirectSale = ($dto->orderType === 'direct_sale');
+
+            if ($isDirectSale) {
+                $startDate = $dto->startDate ?? now();
+                $endDate = $dto->endDate ?? now();
+                $salePrice = (float) $dress->originalRetailValue->amount();
+                if ($salePrice <= 0) {
+                    $salePrice = (float) $dress->rentalPricePerDay->amount();
+                }
+
+                $booking = $this->repository->createBooking([
+                    'booking_reference' => $this->uniqueReference(),
+                    'client_token' => $dto->clientToken,
+                    'renter_id' => $dto->renterId,
+                    'atelier_id' => $dto->atelierId,
+                    'fitting_datetime' => null,
+                    'start_date' => $startDate->toDateString(),
+                    'end_date' => $endDate->toDateString(),
+                    'rental_days_count' => 1,
+                    'rental_rate_total' => number_format($salePrice, 2, '.', ''),
+                    'cleaning_fee_total' => '0.00',
+                    'security_deposit_amount' => '0.00',
+                    'late_fee_total' => '0.00',
+                    'discount_amount' => '0.00',
+                    'tax_amount' => '0.00',
+                    'grand_total' => number_format($salePrice, 2, '.', ''),
+                    'deposit_held' => '0.00',
+                    'deposit_refunded' => '0.00',
+                    'deposit_deducted' => '0.00',
+                    'currency' => self::CURRENCY,
+                    'order_type' => 'direct_sale',
+                    'status' => BookingStatus::PendingPayment->value,
+                ]);
+
+                $this->repository->createItem($booking->id, [
+                    'dress_id' => $dto->dressId,
+                    'dress_size_id' => $dto->dressSizeId,
+                    'quantity' => 1,
+                    'unit_rental_price' => number_format($salePrice, 2, '.', ''),
+                    'rental_days' => 1,
+                    'subtotal' => number_format($salePrice, 2, '.', ''),
+                ]);
+
+                return $booking;
             }
 
-            $dress = $this->catalog->getDressSnapshot($dto->dressId);
-            $range = DateRange::between($dto->startDate, $dto->endDate);
+            $startDate = $dto->startDate ?? now();
+            $endDate = $dto->endDate ?? now();
+            $range = DateRange::between($startDate, $endDate);
             $rentalDays = $range->dayCount();
+
+            $depositAmount = (float) $dress->securityDepositAmount->amount();
+            $rentalPrice = (float) $dress->rentalPricePerDay->amount();
+            if ($depositAmount <= 0) {
+                $depositAmount = round($rentalPrice * 0.25, 2);
+            }
 
             $breakdown = $this->pricing->calculateBookingTotal(new PricingCalculationDTO(
                 renterId: $dto->renterId,
                 atelierId: $dto->atelierId,
                 items: [['dress_id' => $dto->dressId, 'daily_rate' => $dress->rentalPricePerDay->amount()]],
-                startDate: $dto->startDate,
-                endDate: $dto->endDate,
+                startDate: $startDate,
+                endDate: $endDate,
                 rentalDays: $rentalDays,
                 cleaningFee: $dress->cleaningFee->amount(),
-                securityDeposit: $dress->securityDepositAmount->amount(),
+                securityDeposit: $depositAmount,
                 couponCode: $dto->couponCode,
                 currency: self::CURRENCY,
+                isDailyBilling: $dto->isDailyBilling,
             ));
 
             $booking = $this->repository->createBooking([
@@ -95,8 +146,8 @@ class BookingService implements BookingOrchestratorContract
                 'renter_id' => $dto->renterId,
                 'atelier_id' => $dto->atelierId,
                 'fitting_datetime' => $dto->fittingDatetime,
-                'start_date' => $dto->startDate->toDateString(),
-                'end_date' => $dto->endDate->toDateString(),
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
                 'rental_days_count' => $rentalDays,
                 'rental_rate_total' => $breakdown->subtotal->amount(),
                 'cleaning_fee_total' => $breakdown->cleaningFee->amount(),
@@ -109,6 +160,7 @@ class BookingService implements BookingOrchestratorContract
                 'deposit_refunded' => '0',
                 'deposit_deducted' => '0',
                 'currency' => self::CURRENCY,
+                'order_type' => 'rental',
                 'status' => BookingStatus::PendingPayment->value,
             ]);
 
@@ -255,6 +307,10 @@ class BookingService implements BookingOrchestratorContract
             return;
         }
 
+        if ($actor === 'any' && $actorId === null) {
+            return;
+        }
+
         if (! is_int($actorId)) {
             abort(403);
         }
@@ -304,7 +360,11 @@ class BookingService implements BookingOrchestratorContract
                 'mark_available' => $this->applyToEachDress($booking, fn (int $dressId): mixed => $this->inventory->markAvailable($dressId, $actorId)),
                 'mark_dispatched_at' => $booking->actual_dispatched_at = now(),
                 'mark_received_at' => $booking->actual_received_at = now(),
-                'mark_returned_at' => $booking->actual_returned_at = now(),
+                'mark_returned_at' => (function () use ($booking): void {
+                    $now = now();
+                    $booking->actual_returned_at = $now;
+                    $booking->returned_at ??= $now;
+                })(),
                 'notify_expired' => $this->notifyRenter($booking, 'booking_expired', 'Booking expired', sprintf('Booking #%s expired because payment was not completed.', $booking->booking_reference)),
                 'notify_cancelled' => $this->notifyRenter($booking, 'booking_cancelled', 'Booking cancelled', sprintf('Booking #%s was cancelled.', $booking->booking_reference)),
                 'notify_dispatched' => $this->notifyRenter($booking, 'booking_dispatched', 'Booking dispatched', sprintf('Booking #%s is on its way.', $booking->booking_reference)),

@@ -3,6 +3,7 @@ import { CalendarX, Check, MoreHorizontal, Sparkles, Wrench } from 'lucide-react
 import * as React from 'react';
 
 import { Alert } from '../../Components/Feedback/Alert';
+import { resolveImageUrl } from '../../Lib/utils';
 import { EmptyState } from '../../Components/Feedback/EmptyState';
 import { useToast } from '../../Components/Feedback/Toast';
 import { Badge } from '../../Components/UI/Badge';
@@ -207,7 +208,7 @@ export function GarmentStatusTable({ atelierId, garments, onChanged }: GarmentSt
                                             <div className="h-12 w-12 shrink-0 overflow-hidden bg-stone-line/40">
                                                 {garment.primary_image ? (
                                                     <img
-                                                        src={garment.primary_image}
+                                                        src={resolveImageUrl(garment.primary_image)}
                                                         alt={garment.title}
                                                         loading="lazy"
                                                         className="h-full w-full object-cover"

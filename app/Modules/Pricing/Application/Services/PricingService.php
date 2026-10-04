@@ -40,8 +40,8 @@ class PricingService implements PricingContract
         $subtotal = Money::zero($dto->currency);
 
         foreach ($dto->items as $item) {
-            $dailyRate = Money::fromDecimal((float) $item['daily_rate'], $dto->currency);
-            $subtotal = $subtotal->add($dailyRate->multiply($dto->rentalDays));
+            $baseRate = Money::fromDecimal((float) $item['daily_rate'], $dto->currency);
+            $subtotal = $subtotal->add($dto->isDailyBilling ? $baseRate->multiply($dto->rentalDays) : $baseRate);
         }
 
         $discount = Money::zero($dto->currency);
@@ -57,7 +57,14 @@ class PricingService implements PricingContract
         }
 
         $cleaningFee = Money::fromDecimal($dto->cleaningFee, $dto->currency);
-        $securityDeposit = Money::fromDecimal($dto->securityDeposit, $dto->currency);
+
+        // Dynamic 25% Refundable Deposit: default to exactly 25% of base rental price unless explicitly set > 0
+        $depositInput = (float) $dto->securityDeposit;
+        if ($depositInput > 0) {
+            $securityDeposit = Money::fromDecimal($depositInput, $dto->currency);
+        } else {
+            $securityDeposit = $subtotal->multiply('0.25');
+        }
 
         $taxRate = $this->taxRateFor($dto->currency, $dto->taxRate);
         $taxBase = $subtotal->add($cleaningFee)->subtract($discount);
@@ -75,6 +82,10 @@ class PricingService implements PricingContract
 
         $grandTotal = $chargeableTotal->add($securityDeposit);
 
+        $totalBookingValue = $subtotal->add($cleaningFee);
+        $upfrontReservationFee = $totalBookingValue->multiply('0.10');
+        $offlineSettlementBalance = $totalBookingValue->multiply('0.90')->add($securityDeposit);
+
         $firstRate = $dto->items[0]['daily_rate'] ?? 0;
 
         return new PricingBreakdownDTO(
@@ -90,6 +101,9 @@ class PricingService implements PricingContract
             securityDeposit: $securityDeposit,
             grandTotal: $grandTotal,
             currency: $dto->currency,
+            totalBookingValue: $totalBookingValue,
+            upfrontReservationFee: $upfrontReservationFee,
+            offlineSettlementBalance: $offlineSettlementBalance,
         );
     }
 

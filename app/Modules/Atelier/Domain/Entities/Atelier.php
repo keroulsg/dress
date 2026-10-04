@@ -22,6 +22,7 @@ class Atelier extends Model
     protected $fillable = [
         'owner_user_id',
         'business_name',
+        'store_type',
         'slug',
         'license_number',
         'description',
@@ -30,9 +31,11 @@ class Atelier extends Model
         'latitude',
         'longitude',
         'phone',
+        'whatsapp_number',
         'email',
         'commission_rate',
         'is_active',
+        'payout_blocked',
         'approved_at',
         'approved_by',
     ];
@@ -44,6 +47,7 @@ class Atelier extends Model
             'longitude' => 'decimal:8',
             'commission_rate' => 'decimal:2',
             'is_active' => 'boolean',
+            'payout_blocked' => 'boolean',
             'approved_at' => 'datetime',
         ];
     }
@@ -93,6 +97,33 @@ class Atelier extends Model
         $role = $this->staff()->where('user_id', $user->id)->value('role');
 
         return $role === null ? null : (string) $role;
+    }
+
+    public function getDisplayLabelAttribute(): string
+    {
+        return match ($this->store_type ?? 'atelier') {
+            'abaya_brand' => 'براند عبايات',
+            'accessories_jewelry' => 'مجوهرات وإكسسوارات',
+            'handmade_designer' => 'استوديو تصميم هاند ميد',
+            'shoes_bags' => 'أحذية وحقائب سواريه',
+            'general_boutique' => 'بوتيك أزياء ومناسبات',
+            default => 'أتيليه أزياء',
+        };
+    }
+
+    public function isPayoutBlocked(): bool
+    {
+        return (bool) $this->payout_blocked;
+    }
+
+    public function blockPayouts(): void
+    {
+        $this->update(['payout_blocked' => true]);
+    }
+
+    public function unblockPayouts(): void
+    {
+        $this->update(['payout_blocked' => false]);
     }
 
     protected static function newFactory(): AtelierFactory

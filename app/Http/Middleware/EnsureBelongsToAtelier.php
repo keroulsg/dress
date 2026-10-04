@@ -23,21 +23,29 @@ class EnsureBelongsToAtelier
     {
         $user = $request->user();
 
+        // Condition 1: User MUST be authenticated
         if ($user === null) {
-            abort(403);
+            return redirect()->guest(route('login'));
+        }
+
+        // Condition 2: User role MUST strictly be atelier_owner, atelier_staff, or super_admin
+        if ($user->role !== 'atelier_owner' && $user->role !== 'atelier_staff' && ! $user->isSuperadmin()) {
+            abort(403, 'غير مصرح لك بالوصول. لوحة التحكم مخصصة لصاحبة الأتيليه فقط.');
         }
 
         $value = $request->route($routeParam);
         $atelierId = $value instanceof Model ? (int) $value->getKey() : (int) $value;
 
         if ($atelierId <= 0) {
-            abort(403);
+            abort(403, 'غير مصرح لك بالوصول. لوحة التحكم مخصصة لصاحبة الأتيليه فقط.');
         }
 
+        // Superadmin bypass
         if ($user->isSuperadmin()) {
             return $next($request);
         }
 
+        // Condition 3 (Strict Tenant Isolation): User must own or be staff of this specific atelier
         $owned = $this->ateliers->findForOwner($user->id);
 
         if ($owned !== null && $owned->atelierId === $atelierId) {
@@ -48,6 +56,6 @@ class EnsureBelongsToAtelier
             return $next($request);
         }
 
-        abort(403);
+        abort(403, 'غير مصرح لك بالوصول. لوحة التحكم مخصصة لصاحبة الأتيليه فقط.');
     }
 }

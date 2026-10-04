@@ -33,7 +33,7 @@ class InitiatePaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'payment_method' => ['required', 'string', 'in:credit_card,mada,knet,apple_pay,mock_card,mock_card_success,mock_card_3ds,mock_card_declined'],
+            'payment_method' => ['required', 'string', 'in:card,credit_card,mada,knet,apple_pay,mock_card,mock_card_success,mock_card_3ds,mock_card_declined,sandbox'],
             'idempotency_token' => ['required', 'string', 'max:64'],
         ];
     }

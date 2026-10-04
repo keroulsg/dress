@@ -3,7 +3,7 @@
  * protected operation is enforced server-side via Policies/Gates.
  */
 
-export type Role = 'superadmin' | 'atelier_owner' | 'atelier_staff' | 'renter';
+export type Role = 'superadmin' | 'super_admin' | 'atelier_owner' | 'atelier_staff' | 'renter';
 
 export interface AuthUser {
     id: number;

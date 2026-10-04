@@ -7,6 +7,7 @@ namespace Tests\Feature\Security;
 use App\Modules\Administration\Domain\Entities\AuditLog;
 use App\Modules\Atelier\Infrastructure\Database\Factories\AtelierFactory;
 use App\Modules\Booking\Domain\Enums\BookingStatus;
+use App\Modules\Booking\Domain\State\BookingStateMachine;
 use App\Modules\Booking\Infrastructure\Database\Factories\BookingFactory;
 use App\Modules\Identity\Infrastructure\Database\Factories\UserFactory;
 use App\Modules\KYC\Domain\Entities\KycVerification;
@@ -77,8 +78,9 @@ class AuditLogTest extends TestCase
             'status' => BookingStatus::Confirmed,
         ]);
 
+        $machine = app(BookingStateMachine::class);
+        $machine->apply($booking, BookingStatus::Cancelled);
         $booking->update([
-            'status' => 'cancelled',
             'cancellation_reason' => 'Customer request',
             'cancelled_by' => $renter->id,
             'cancelled_at' => now(),
@@ -104,10 +106,15 @@ class AuditLogTest extends TestCase
             'status' => BookingStatus::PendingPayment,
         ]);
 
-        $booking->update(['status' => 'cancelled', 'cancellation_reason' => 'Test']);
+        $machine = app(BookingStateMachine::class);
+        $machine->apply($booking, BookingStatus::Cancelled);
+        $booking->update(['cancellation_reason' => 'Test']);
 
         $first = AuditLog::query()->where('action', 'booking.cancelled')->first();
 
+        // The state machine doesn't allow transition from Cancelled to Confirmed.
+        // We will just force the flag to test the audit log behavior.
+        $booking->status_mutated_by_machine = true;
         $booking->update(['status' => 'confirmed']);
 
         $count = AuditLog::query()->where('action', 'booking.cancelled')->count();

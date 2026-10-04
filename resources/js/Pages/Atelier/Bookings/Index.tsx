@@ -1,8 +1,11 @@
-import type { PageProps } from '../../../types';
+import React from 'react';
+import { Head } from '@inertiajs/react';
+import type { PageProps } from '@/types';
 
-import { OrdersManagement } from '../../../Modules/Atelier/OrdersManagement';
-import type { OrdersManagementBooking } from '../../../Modules/Atelier/OrdersManagement';
-import AtelierLayout from '../../../Layouts/AtelierLayout';
+import { OrdersManagement } from '@/Modules/Atelier/OrdersManagement';
+import type { OrdersManagementBooking } from '@/Modules/Atelier/OrdersManagement';
+import AtelierLayout from '@/Layouts/AtelierLayout';
+import { useLanguage } from '@/Contexts/LanguageContext';
 
 type BookingsIndexProps = PageProps<{
     atelier: { id: number; business_name: string };
@@ -13,8 +16,14 @@ type BookingsIndexProps = PageProps<{
 }>;
 
 export default function BookingsIndex({ atelier, bookings, statuses }: BookingsIndexProps) {
+    const { t, isRtl } = useLanguage();
+
     return (
-        <AtelierLayout title="Booking pipeline" breadcrumbs={[{ label: 'Bookings' }]}>
+        <AtelierLayout
+            title={t('atelier.bookings.title')}
+            breadcrumbs={[{ label: t('atelier.nav.bookings') }]}
+        >
+            <Head title={`${t('atelier.nav.bookings')} | ${atelier.business_name}`} />
             <OrdersManagement atelierId={atelier.id} bookings={bookings} statuses={statuses} />
         </AtelierLayout>
     );

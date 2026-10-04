@@ -87,6 +87,6 @@ class AtelierIsolationTest extends TestCase
     {
         Route::middleware('atelier')->get('/_security/guest/atelier/{atelier}', fn () => response('ok'));
 
-        $this->get("/_security/guest/atelier/{$this->atelierA->id}")->assertForbidden();
+        $this->get("/_security/guest/atelier/{$this->atelierA->id}")->assertRedirect('/login');
     }
 }

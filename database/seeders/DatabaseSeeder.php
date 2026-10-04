@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             CatalogSeeder::class,
             BookingSeeder::class,
             CouponSeeder::class,
+            OccasionsEcosystemSeeder::class,
         ]);
     }
 }

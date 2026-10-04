@@ -29,13 +29,18 @@ final readonly class UpdateDressDTO
         public float|int|string|null $lateFeePerDay = null,
         public ?int $turnaroundBufferDays = null,
         public ?string $conditionRating = null,
+        public ?string $listingMode = null,
+        public ?string $productType = null,
+        public ?bool $allowsRent = null,
+        public ?bool $allowsSale = null,
         public array $sizes = [],
         public array $images = [],
+        public ?bool $publishNow = null,
     ) {}
 
     public function toArray(): array
     {
-        return array_filter([
+        $data = array_filter([
             'title' => $this->title,
             'category_id' => $this->categoryId,
             'description' => $this->description,
@@ -49,6 +54,17 @@ final readonly class UpdateDressDTO
             'late_fee_per_day' => $this->lateFeePerDay,
             'turnaround_buffer_days' => $this->turnaroundBufferDays,
             'condition_rating' => $this->conditionRating,
+            'listing_mode' => $this->listingMode,
+            'product_type' => $this->productType,
+            'allows_rent' => $this->allowsRent,
+            'allows_sale' => $this->allowsSale,
         ], fn ($value): bool => $value !== null);
+
+        if ($this->publishNow !== null) {
+            $data['status'] = $this->publishNow ? 'active' : 'draft';
+            $data['published_at'] = $this->publishNow ? now() : null;
+        }
+
+        return $data;
     }
 }

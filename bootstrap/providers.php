@@ -16,10 +16,10 @@ use App\Modules\Notification\Providers\NotificationServiceProvider;
 use App\Modules\Payment\Providers\PaymentServiceProvider;
 use App\Modules\Pricing\Providers\PricingServiceProvider;
 use App\Modules\Review\Providers\ReviewServiceProvider;
+use App\Modules\Storefront\Providers\StorefrontServiceProvider;
 use App\Providers\AppServiceProvider;
 
 return [
-    AppServiceProvider::class,
     AdministrationServiceProvider::class,
     AtelierServiceProvider::class,
     AvailabilityServiceProvider::class,
@@ -36,4 +36,6 @@ return [
     PaymentServiceProvider::class,
     PricingServiceProvider::class,
     ReviewServiceProvider::class,
+    AppServiceProvider::class,
+    StorefrontServiceProvider::class,
 ];

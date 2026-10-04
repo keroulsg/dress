@@ -4,7 +4,7 @@ import { Heart } from 'lucide-react';
 import { Badge, type BadgeTone } from '../../Components/UI/Badge';
 import { formatCurrency } from '../../Lib/currency';
 import { dressStatus, statusColors } from '../../Lib/tokens';
-import { cn } from '../../Lib/utils';
+import { cn, resolveImageUrl } from '../../Lib/utils';
 
 export interface DressCardDress {
     id: number;
@@ -56,7 +56,7 @@ export function dressConditionLabel(condition: string): string {
 }
 
 function DressImage({ dress }: { dress: DressCardDress }) {
-    const src = dress.primary_image_path ?? dress.thumbnail_path;
+    const src = resolveImageUrl(dress.primary_image_path ?? dress.thumbnail_path);
 
     return (
         <div className="aspect-[3/4] overflow-hidden bg-stone-line/40">

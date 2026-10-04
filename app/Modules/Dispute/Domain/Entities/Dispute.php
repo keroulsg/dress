@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Dispute extends Model
 {
@@ -27,6 +28,10 @@ class Dispute extends Model
         'resolution',
         'resolved_by',
         'resolved_at',
+        'arbitrator_id',
+        'arbitration_status',
+        'arbitration_resolution',
+        'resolution_amount',
     ];
 
     protected function casts(): array
@@ -36,6 +41,7 @@ class Dispute extends Model
             'resolved_at' => 'datetime',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
+            'resolution_amount' => 'decimal:2',
         ];
     }
 
@@ -52,6 +58,16 @@ class Dispute extends Model
     public function resolver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'resolved_by');
+    }
+
+    public function arbitrator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'arbitrator_id');
+    }
+
+    public function messages(): HasMany
+    {
+        return $this->hasMany(DisputeMessage::class);
     }
 
     public function scopeOpen(Builder $query): Builder

@@ -29,5 +29,6 @@ final readonly class PricingCalculationDTO
         public bool $includeDelivery = false,
         public ?string $deliveryCity = null,
         public string $currency = 'EGP',
+        public bool $isDailyBilling = true,
     ) {}
 }

@@ -37,6 +37,29 @@ class DressImage extends Model
         return $this->belongsTo(Dress::class);
     }
 
+    public function getPublicUrlAttribute(): ?string
+    {
+        return self::formatPublicUrl($this->image_path);
+    }
+
+    public static function formatPublicUrl(?string $path): ?string
+    {
+        if ($path === null || $path === '') {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, 'data:') || str_starts_with($path, 'blob:')) {
+            return $path;
+        }
+
+        $clean = ltrim($path, '/');
+        if (str_starts_with($clean, 'storage/')) {
+            return '/'.$clean;
+        }
+
+        return '/storage/'.$clean;
+    }
+
     public function scopePrimaryImage(Builder $query): Builder
     {
         return $query->where('is_primary', true);

@@ -30,15 +30,17 @@ class UpdateDressRequest extends FormRequest
                     $fail('The selected category is invalid or inactive.');
                 }
             }],
+            'product_type' => ['nullable', 'string', 'in:dress,abaya,accessory,footwear_bag,other'],
             'description' => ['nullable', 'string', 'max:5000'],
             'fabric_type' => ['nullable', 'string', 'max:100'],
             'silhouette' => ['nullable', 'string', 'max:100'],
             'color_primary' => ['nullable', 'string', 'max:100'],
+            'listing_mode' => ['sometimes', 'required', 'string', 'in:rent,sell,both'],
             'original_retail_value' => ['nullable', 'numeric', 'min:0'],
-            'rental_price_per_day' => ['sometimes', 'required', 'numeric', 'min:1'],
-            'security_deposit_amount' => ['sometimes', 'required', 'numeric', 'min:0'],
+            'rental_price_per_day' => ['sometimes', 'nullable', 'numeric', 'min:1'],
+            'security_deposit_amount' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'cleaning_fee' => ['nullable', 'numeric', 'min:0'],
-            'late_fee_per_day' => ['sometimes', 'required', 'numeric', 'min:0'],
+            'late_fee_per_day' => ['nullable', 'numeric', 'min:0'],
             'turnaround_buffer_days' => ['nullable', 'integer', 'min:0', 'max:14'],
             'condition_rating' => ['nullable', 'string', 'in:brand_new,like_new,good,minor_flaws'],
             'sizes' => ['nullable', 'array', 'max:7'],
@@ -49,6 +51,7 @@ class UpdateDressRequest extends FormRequest
             'sizes.*.length' => ['nullable', 'numeric', 'min:0'],
             'images' => ['nullable', 'array', 'max:12'],
             'images.*' => ['file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240'],
+            'publish_now' => ['nullable', 'boolean'],
         ];
     }
 }

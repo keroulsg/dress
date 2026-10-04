@@ -6,7 +6,9 @@ namespace App\Modules\Booking\Domain\Entities;
 
 use App\Modules\Atelier\Domain\Entities\Atelier;
 use App\Modules\Booking\Domain\Enums\BookingStatus;
+use App\Modules\Booking\Domain\Exceptions\IllegalStatusMutationException;
 use App\Modules\Booking\Infrastructure\Database\Factories\BookingFactory;
+use App\Modules\Catalog\Domain\Entities\Dress;
 use App\Modules\Dispute\Domain\Entities\Dispute;
 use App\Modules\Identity\Domain\Entities\User;
 use App\Modules\Inspection\Domain\Entities\InspectionReport;
@@ -17,13 +19,29 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Booking extends Model
 {
     /** @use HasFactory<BookingFactory> */
     use HasFactory, SoftDeletes;
+
+    public bool $status_mutated_by_machine = false;
+
+    protected static function booted(): void
+    {
+        static::updating(function (self $booking) {
+            if ($booking->isDirty('status')) {
+                if (! $booking->status_mutated_by_machine) {
+                    throw new IllegalStatusMutationException('Direct status mutation is blocked. Use BookingStateMachine.');
+                }
+                $booking->status_mutated_by_machine = false;
+            }
+        });
+    }
 
     protected $fillable = [
         'booking_reference',
@@ -47,7 +65,11 @@ class Booking extends Model
         'deposit_held',
         'deposit_refunded',
         'deposit_deducted',
+        'deposit_disputed',
+        'deposit_refunded_at',
+        'returned_at',
         'currency',
+        'order_type',
         'status',
         'cancellation_reason',
         'cancelled_at',
@@ -63,6 +85,9 @@ class Booking extends Model
             'actual_dispatched_at' => 'datetime',
             'actual_received_at' => 'datetime',
             'actual_returned_at' => 'datetime',
+            'returned_at' => 'datetime',
+            'deposit_refunded_at' => 'datetime',
+            'deposit_disputed' => 'boolean',
             'rental_rate_total' => 'decimal:2',
             'cleaning_fee_total' => 'decimal:2',
             'security_deposit_amount' => 'decimal:2',
@@ -93,6 +118,30 @@ class Booking extends Model
     public function items(): HasMany
     {
         return $this->hasMany(BookingItem::class);
+    }
+
+    public function dress(): HasOneThrough
+    {
+        return $this->hasOneThrough(
+            Dress::class,
+            BookingItem::class,
+            'booking_id',
+            'id',
+            'id',
+            'dress_id'
+        );
+    }
+
+    public function dresses(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Dress::class,
+            BookingItem::class,
+            'booking_id',
+            'id',
+            'id',
+            'dress_id'
+        );
     }
 
     public function inspectionReports(): HasMany

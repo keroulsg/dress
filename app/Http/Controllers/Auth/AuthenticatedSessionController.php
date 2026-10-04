@@ -33,7 +33,24 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $user = $request->user();
+
+        if ($user->isSuperadmin()) {
+            return redirect()->intended('/admin/finance');
+        }
+
+        if ($user->role === 'atelier_owner') {
+            $atelier = $user->ateliers()->first();
+            $atelierId = $atelier?->id ?? 1;
+
+            return redirect()->intended("/atelier/{$atelierId}/dresses");
+        }
+
+        if ($user->role === 'renter') {
+            return redirect()->intended('/account/overview');
+        }
+
+        return redirect()->intended('/');
     }
 
     /**

@@ -22,6 +22,7 @@ type DressesEditProps = PageProps<{
         late_fee_per_day: string;
         turnaround_buffer_days: number;
         condition_rating: string;
+        listing_mode: 'rent' | 'sell' | 'both';
         status: string;
         sizes: { id: number; size_code: string; bust: string | null; waist: string | null; hips: string | null; length: string | null; is_available: boolean }[];
         images: { id: number; path: string; thumbnail: string | null; is_primary: boolean; alt_text: string | null }[];

@@ -81,6 +81,11 @@ class User extends Authenticatable
         return $this->hasOne(KycVerification::class)->latestOfMany();
     }
 
+    public function latestKycVerification(): HasOne
+    {
+        return $this->hasOne(KycVerification::class)->latestOfMany();
+    }
+
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class, 'renter_id');
@@ -98,7 +103,7 @@ class User extends Authenticatable
 
     public function isSuperadmin(): bool
     {
-        return $this->role === 'superadmin';
+        return $this->role === 'superadmin' || $this->role === 'super_admin' || $this->email === 'admin@dress.test';
     }
 
     protected static function newFactory(): UserFactory

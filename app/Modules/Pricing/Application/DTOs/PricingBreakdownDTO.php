@@ -29,6 +29,9 @@ final readonly class PricingBreakdownDTO
         public Money $securityDeposit,
         public Money $grandTotal,
         public string $currency,
+        public ?Money $totalBookingValue = null,
+        public ?Money $upfrontReservationFee = null,
+        public ?Money $offlineSettlementBalance = null,
     ) {}
 
     /**
@@ -36,6 +39,10 @@ final readonly class PricingBreakdownDTO
      */
     public function toArray(): array
     {
+        $totalBookingValue = $this->totalBookingValue ?? $this->subtotal->add($this->cleaningFee);
+        $upfrontFee = $this->upfrontReservationFee ?? $totalBookingValue->multiply('0.10');
+        $offlineBalance = $this->offlineSettlementBalance ?? $totalBookingValue->multiply('0.90')->add($this->securityDeposit);
+
         return [
             'daily_rate' => $this->dailyRate->jsonSerialize(),
             'rental_days' => $this->rentalDays,
@@ -48,6 +55,9 @@ final readonly class PricingBreakdownDTO
             'chargeable_total' => $this->chargeableTotal->jsonSerialize(),
             'security_deposit' => $this->securityDeposit->jsonSerialize(),
             'grand_total' => $this->grandTotal->jsonSerialize(),
+            'total_booking_value' => $totalBookingValue->jsonSerialize(),
+            'upfront_reservation_fee' => $upfrontFee->jsonSerialize(),
+            'offline_settlement_balance' => $offlineBalance->jsonSerialize(),
             'currency' => $this->currency,
         ];
     }

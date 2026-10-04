@@ -29,7 +29,12 @@ final readonly class CreateDressDTO
         public float|int|string $lateFeePerDay = 0,
         public int $turnaroundBufferDays = 2,
         public string $conditionRating = 'good',
+        public string $listingMode = 'rent',
+        public string $productType = 'dress',
+        public ?bool $allowsRent = null,
+        public ?bool $allowsSale = null,
         public array $sizes = [],
         public array $images = [],
+        public bool $publishNow = false,
     ) {}
 }

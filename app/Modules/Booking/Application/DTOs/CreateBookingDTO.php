@@ -16,11 +16,13 @@ final readonly class CreateBookingDTO
         public int $atelierId,
         public int $dressId,
         public ?int $dressSizeId,
-        public CarbonInterface $startDate,
-        public CarbonInterface $endDate,
+        public ?CarbonInterface $startDate = null,
+        public ?CarbonInterface $endDate = null,
         public ?CarbonInterface $fittingDatetime = null,
         public ?string $deliveryAddress = null,
         public ?string $clientToken = null,
         public ?string $couponCode = null,
+        public bool $isDailyBilling = true,
+        public string $orderType = 'rental',
     ) {}
 }

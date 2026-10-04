@@ -13,15 +13,22 @@ class UploadKycDocumentRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->hasFile('front') && $this->hasFile('document_file')) {
+            $this->files->set('front', $this->file('document_file'));
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
-            'document_type' => ['required', 'string', 'in:'.implode(',', (array) config('kyc.document_types', []))],
-            'front' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
-            'back' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:5120'],
+            'document_type' => ['nullable', 'string'],
+            'front' => ['required', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:10240'],
+            'back' => ['nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:10240'],
         ];
     }
 }

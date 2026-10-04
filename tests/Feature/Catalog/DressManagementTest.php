@@ -50,6 +50,7 @@ class DressManagementTest extends TestCase
             'fabric_type' => 'Silk Chiffon',
             'silhouette' => 'Mermaid',
             'color_primary' => 'Ivory',
+            'listing_mode' => 'rent',
             'original_retail_value' => 8000,
             'rental_price_per_day' => 500,
             'security_deposit_amount' => 2000,

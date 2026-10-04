@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { Check, ImagePlus, Plus, Trash2 } from 'lucide-react';
+import { Check, ImagePlus, Plus, ShoppingBag, Tag, Trash2, UploadCloud } from 'lucide-react';
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 
 import { Alert } from '../../Components/Feedback/Alert';
@@ -7,8 +7,9 @@ import { Button } from '../../Components/UI/Button';
 import { Input } from '../../Components/UI/Input';
 import { Select } from '../../Components/UI/Select';
 import { Textarea } from '../../Components/UI/Textarea';
+import { useLanguage } from '../../Contexts/LanguageContext';
 import { formatCurrency } from '../../Lib/currency';
-import { cn } from '../../Lib/utils';
+import { cn, resolveImageUrl } from '../../Lib/utils';
 
 const PREVIEW_CURRENCY = 'EGP';
 const QUOTE_DAYS = 3;
@@ -49,12 +50,14 @@ interface ImagePreview {
 interface DressFormData {
     title: string;
     category_id: string;
+    product_type: string;
     description: string;
     fabric_type: string;
     silhouette: string;
     color_primary: string;
     condition_rating: string;
     turnaround_buffer_days: string;
+    listing_mode: 'rent' | 'sell' | 'both';
     rental_price_per_day: string;
     security_deposit_amount: string;
     cleaning_fee: string;
@@ -62,6 +65,7 @@ interface DressFormData {
     original_retail_value: string;
     sizes: SizeRow[];
     images: File[];
+    publish_now: boolean;
 }
 
 type DressFormErrors = Partial<Record<keyof DressFormData, string>>;
@@ -74,6 +78,7 @@ export interface DressCreateEditProps {
         id: number;
         title: string;
         category_id: number;
+        product_type?: string;
         description: string | null;
         fabric_type: string | null;
         silhouette: string | null;
@@ -85,6 +90,7 @@ export interface DressCreateEditProps {
         late_fee_per_day: string;
         turnaround_buffer_days: number;
         condition_rating: string;
+        listing_mode: 'rent' | 'sell' | 'both';
         status: string;
         sizes: Array<{
             id: number;
@@ -132,8 +138,14 @@ function validateStep(step: number, data: DressFormData): DressFormErrors {
 
     if (step === 1) {
         const errors: DressFormErrors = {};
-        if (!data.rental_price_per_day.trim() || Number(data.rental_price_per_day) < 1) {
+        const needsRent = data.listing_mode === 'rent' || data.listing_mode === 'both';
+        const needsSell = data.listing_mode === 'sell' || data.listing_mode === 'both';
+
+        if (needsRent && (!data.rental_price_per_day.trim() || Number(data.rental_price_per_day) < 1)) {
             errors.rental_price_per_day = 'Rental price per day must be at least 1.';
+        }
+        if (needsSell && (!data.original_retail_value.trim() || Number(data.original_retail_value) < 1)) {
+            errors.original_retail_value = 'Sale price must be at least 1.';
         }
 
         return errors;
@@ -154,20 +166,24 @@ function validateStep(step: number, data: DressFormData): DressFormErrors {
 }
 
 export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreateEditProps) {
+    const { tr } = useLanguage();
     const [step, setStep] = useState(0);
     const [stepErrors, setStepErrors] = useState<DressFormErrors>({});
     const [previews, setPreviews] = useState<ImagePreview[]>([]);
     const [mediaError, setMediaError] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     const form = useForm<DressFormData>({
         title: dress?.title ?? '',
         category_id: dress ? String(dress.category_id) : '',
+        product_type: dress?.product_type ?? 'dress',
         description: dress?.description ?? '',
         fabric_type: dress?.fabric_type ?? '',
         silhouette: dress?.silhouette ?? '',
         color_primary: dress?.color_primary ?? '',
         condition_rating: dress?.condition_rating ?? 'good',
         turnaround_buffer_days: dress ? String(dress.turnaround_buffer_days) : '3',
+        listing_mode: dress?.listing_mode ?? 'rent',
         rental_price_per_day: dress?.rental_price_per_day ?? '',
         security_deposit_amount: dress?.security_deposit_amount ?? '',
         cleaning_fee: dress?.cleaning_fee ?? '',
@@ -185,7 +201,11 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
                   }))
                 : [{ size_code: '', bust: '', waist: '', hips: '', length: '', is_available: true }],
         images: [],
+        publish_now: true,
     });
+
+    const isRent = form.data.listing_mode === 'rent' || form.data.listing_mode === 'both';
+    const isSell = form.data.listing_mode === 'sell' || form.data.listing_mode === 'both';
 
     const handleContinue = (): void => {
         const errors = validateStep(step, form.data);
@@ -195,11 +215,10 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
         }
     };
 
-    const submit = (event: FormEvent<HTMLFormElement>): void => {
-        event.preventDefault();
-
+    const submitWithPublish = (publishNow: boolean): void => {
         form.transform((data) => ({
             ...data,
+            publish_now: publishNow,
             category_id: data.category_id ? Number(data.category_id) : null,
             turnaround_buffer_days:
                 data.turnaround_buffer_days.trim() !== '' ? Number(data.turnaround_buffer_days) : null,
@@ -222,8 +241,12 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
         }
     };
 
-    const handleFiles = (event: ChangeEvent<HTMLInputElement>): void => {
-        const files = Array.from(event.target.files ?? []);
+    const submit = (event: FormEvent<HTMLFormElement>): void => {
+        event.preventDefault();
+        submitWithPublish(true);
+    };
+
+    const handleFileList = (files: File[]): void => {
         const rejected = files.filter((file) => !ALLOWED_MIME.includes(file.type));
         const accepted = files.filter((file) => ALLOWED_MIME.includes(file.type));
 
@@ -244,8 +267,12 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
             const next = [...previews, ...added];
             setPreviews(next);
             form.setData('images', next.map((preview) => preview.file));
-            event.target.value = '';
         }
+    };
+
+    const handleFiles = (event: ChangeEvent<HTMLInputElement>): void => {
+        handleFileList(Array.from(event.target.files ?? []));
+        event.target.value = '';
     };
 
     const removePreview = (id: string): void => {
@@ -369,15 +396,30 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
                             <FieldError message={stepErrors.title ?? form.errors.title} />
                         </div>
 
-                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
                             <div className="space-y-2">
-                                <FieldLabel htmlFor="category_id">Category</FieldLabel>
+                                <FieldLabel htmlFor="product_type">{tr('نوع القطعة (Product Type)', 'Product Type')}</FieldLabel>
+                                <Select
+                                    id="product_type"
+                                    value={form.data.product_type}
+                                    onChange={(event) => form.setData('product_type', event.target.value)}
+                                >
+                                    <option value="dress">{tr('فستان سهرة / زفاف (Dress)', 'Dress / Gown')}</option>
+                                    <option value="abaya">{tr('عباية / قفطان فاخر (Abaya)', 'Abaya & Kaftan')}</option>
+                                    <option value="accessory">{tr('مجوهرات وإكسسوارات (Accessory)', 'Bridal Accessory & Jewelry')}</option>
+                                    <option value="footwear_bag">{tr('حقائب وأحذية مناسبات (Bags & Shoes)', 'Occasion Bags & Footwear')}</option>
+                                    <option value="other">{tr('تصميم يدوي كوتور (Other)', 'Handmade Couture / Other')}</option>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <FieldLabel htmlFor="category_id">{tr('القسم (Category)', 'Category')}</FieldLabel>
                                 <Select
                                     id="category_id"
                                     value={form.data.category_id}
                                     onChange={(event) => form.setData('category_id', event.target.value)}
                                 >
-                                    <option value="">Select category</option>
+                                    <option value="">{tr('اختر القسم', 'Select category')}</option>
                                     {categories.map((category) => (
                                         <option key={category.id} value={category.id}>
                                             {category.name}
@@ -388,7 +430,7 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
                             </div>
 
                             <div className="space-y-2">
-                                <FieldLabel htmlFor="condition_rating">Condition</FieldLabel>
+                                <FieldLabel htmlFor="condition_rating">{tr('الحالة (Condition)', 'Condition')}</FieldLabel>
                                 <Select
                                     id="condition_rating"
                                     value={form.data.condition_rating}
@@ -466,112 +508,183 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
                                 message={stepErrors.turnaround_buffer_days ?? form.errors.turnaround_buffer_days}
                             />
                         </div>
+
+                        {/* ── Listing mode ── */}
+                        <div className="space-y-3">
+                            <FieldLabel>Listing mode / نوع الطرح</FieldLabel>
+                            <div className="grid grid-cols-3 gap-3">
+                                {(
+                                    [
+                                        {
+                                            value: 'rent',
+                                            icon: <Tag className="h-5 w-5" aria-hidden="true" />,
+                                            title: 'للإيجار فقط',
+                                            sub: 'Rent only',
+                                        },
+                                        {
+                                            value: 'sell',
+                                            icon: <ShoppingBag className="h-5 w-5" aria-hidden="true" />,
+                                            title: 'للبيع فقط',
+                                            sub: 'Sell only',
+                                        },
+                                        {
+                                            value: 'both',
+                                            icon: (
+                                                <span className="flex items-center gap-0.5">
+                                                    <Tag className="h-4 w-4" />
+                                                    <ShoppingBag className="h-4 w-4" />
+                                                </span>
+                                            ),
+                                            title: 'إيجار وبيع',
+                                            sub: 'Rent & sell',
+                                        },
+                                    ] as const
+                                ).map(({ value, icon, title, sub }) => {
+                                    const active = form.data.listing_mode === value;
+                                    return (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            onClick={() => form.setData('listing_mode', value)}
+                                            className={cn(
+                                                'flex flex-col items-center gap-2 rounded-none border p-4 text-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose',
+                                                active
+                                                    ? 'border-charcoal bg-charcoal text-white shadow-md'
+                                                    : 'border-stone-line bg-white text-stone-muted hover:border-charcoal hover:text-charcoal',
+                                            )}
+                                        >
+                                            {icon}
+                                            <span className="text-sm font-semibold leading-tight">{title}</span>
+                                            <span className={cn('text-xs', active ? 'text-white/70' : 'text-stone-muted')}>{sub}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </section>
                 ) : null}
 
                 {step === 1 ? (
                     <section aria-label="Pricing and deposit" className="space-y-5">
-                        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                            <div className="space-y-2">
-                                <FieldLabel htmlFor="rental_price_per_day">Rental price per day</FieldLabel>
-                                <Input
-                                    id="rental_price_per_day"
-                                    type="number"
-                                    inputMode="decimal"
-                                    min={1}
-                                    step="0.01"
-                                    value={form.data.rental_price_per_day}
-                                    onChange={(event) => form.setData('rental_price_per_day', event.target.value)}
-                                    placeholder="0.00"
-                                />
-                                <FieldError
-                                    message={stepErrors.rental_price_per_day ?? form.errors.rental_price_per_day}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <FieldLabel htmlFor="security_deposit_amount">Security deposit</FieldLabel>
-                                <Input
-                                    id="security_deposit_amount"
-                                    type="number"
-                                    inputMode="decimal"
-                                    min={0}
-                                    step="0.01"
-                                    value={form.data.security_deposit_amount}
-                                    onChange={(event) =>
-                                        form.setData('security_deposit_amount', event.target.value)
-                                    }
-                                    placeholder="0.00"
-                                />
-                                <FieldError
-                                    message={
-                                        stepErrors.security_deposit_amount ?? form.errors.security_deposit_amount
-                                    }
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <FieldLabel htmlFor="cleaning_fee">Cleaning fee</FieldLabel>
-                                <Input
-                                    id="cleaning_fee"
-                                    type="number"
-                                    inputMode="decimal"
-                                    min={0}
-                                    step="0.01"
-                                    value={form.data.cleaning_fee}
-                                    onChange={(event) => form.setData('cleaning_fee', event.target.value)}
-                                    placeholder="0.00"
-                                />
-                                <FieldError message={stepErrors.cleaning_fee ?? form.errors.cleaning_fee} />
-                            </div>
-                            <div className="space-y-2">
-                                <FieldLabel htmlFor="late_fee_per_day">Late fee per day</FieldLabel>
-                                <Input
-                                    id="late_fee_per_day"
-                                    type="number"
-                                    inputMode="decimal"
-                                    min={0}
-                                    step="0.01"
-                                    value={form.data.late_fee_per_day}
-                                    onChange={(event) => form.setData('late_fee_per_day', event.target.value)}
-                                    placeholder="0.00"
-                                />
-                                <FieldError
-                                    message={stepErrors.late_fee_per_day ?? form.errors.late_fee_per_day}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <FieldLabel htmlFor="original_retail_value">Original retail value</FieldLabel>
-                                <Input
-                                    id="original_retail_value"
-                                    type="number"
-                                    inputMode="decimal"
-                                    min={0}
-                                    step="0.01"
-                                    value={form.data.original_retail_value}
-                                    onChange={(event) =>
-                                        form.setData('original_retail_value', event.target.value)
-                                    }
-                                    placeholder="0.00"
-                                />
-                                <FieldError
-                                    message={stepErrors.original_retail_value ?? form.errors.original_retail_value}
-                                />
-                            </div>
-                        </div>
+                        {/* ── Rental pricing ─────────────────────────────── */}
+                        {isRent ? (
+                            <>
+                                <p className="text-xs uppercase tracking-luxe text-stone-muted">Rental pricing / تسعير الإيجار</p>
+                                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <FieldLabel htmlFor="rental_price_per_day">Rental price per day / سعر اليوم</FieldLabel>
+                                        <Input
+                                            id="rental_price_per_day"
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={1}
+                                            step="0.01"
+                                            value={form.data.rental_price_per_day}
+                                            onChange={(event) => form.setData('rental_price_per_day', event.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                        <FieldError
+                                            message={stepErrors.rental_price_per_day ?? form.errors.rental_price_per_day}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <FieldLabel htmlFor="security_deposit_amount">Security deposit / تأمين</FieldLabel>
+                                        <Input
+                                            id="security_deposit_amount"
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            step="0.01"
+                                            value={form.data.security_deposit_amount}
+                                            onChange={(event) =>
+                                                form.setData('security_deposit_amount', event.target.value)
+                                            }
+                                            placeholder="0.00"
+                                        />
+                                        <FieldError
+                                            message={
+                                                stepErrors.security_deposit_amount ?? form.errors.security_deposit_amount
+                                            }
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <FieldLabel htmlFor="cleaning_fee">Cleaning fee / تنظيف</FieldLabel>
+                                        <Input
+                                            id="cleaning_fee"
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            step="0.01"
+                                            value={form.data.cleaning_fee}
+                                            onChange={(event) => form.setData('cleaning_fee', event.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                        <FieldError message={stepErrors.cleaning_fee ?? form.errors.cleaning_fee} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <FieldLabel htmlFor="late_fee_per_day">Late fee per day / غرامة تأخير</FieldLabel>
+                                        <Input
+                                            id="late_fee_per_day"
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            step="0.01"
+                                            value={form.data.late_fee_per_day}
+                                            onChange={(event) => form.setData('late_fee_per_day', event.target.value)}
+                                            placeholder="0.00"
+                                        />
+                                        <FieldError
+                                            message={stepErrors.late_fee_per_day ?? form.errors.late_fee_per_day}
+                                        />
+                                    </div>
+                                </div>
 
-                        <div className="border border-stone-line bg-ivory p-5">
-                            <p className="text-xs uppercase tracking-luxe text-stone-muted">
-                                {QUOTE_DAYS}-day rental preview
-                            </p>
-                            <div className="mt-3 flex flex-wrap items-baseline justify-between gap-3">
-                                <span className="text-sm text-stone-muted">
-                                    {QUOTE_DAYS} days ×{' '}
-                                    {formatCurrency(form.data.rental_price_per_day || 0, PREVIEW_CURRENCY)}
-                                </span>
-                                <span className="font-display text-2xl text-charcoal">
-                                    {formatCurrency(quoteSubtotal, PREVIEW_CURRENCY)}
-                                </span>
-                            </div>
-                        </div>
+                                <div className="border border-stone-line bg-ivory p-5">
+                                    <p className="text-xs uppercase tracking-luxe text-stone-muted">
+                                        {QUOTE_DAYS}-day rental preview
+                                    </p>
+                                    <div className="mt-3 flex flex-wrap items-baseline justify-between gap-3">
+                                        <span className="text-sm text-stone-muted">
+                                            {QUOTE_DAYS} days ×{' '}
+                                            {formatCurrency(form.data.rental_price_per_day || 0, PREVIEW_CURRENCY)}
+                                        </span>
+                                        <span className="font-display text-2xl text-charcoal">
+                                            {formatCurrency(quoteSubtotal, PREVIEW_CURRENCY)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </>
+                        ) : null}
+
+                        {/* ── Sale pricing ────────────────────────────────── */}
+                        {isSell ? (
+                            <>
+                                {isRent ? (
+                                    <hr className="border-stone-line" />
+                                ) : null}
+                                <p className="text-xs uppercase tracking-luxe text-stone-muted">Sale pricing / تسعير البيع</p>
+                                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                    <div className="space-y-2 sm:col-span-2">
+                                        <FieldLabel htmlFor="original_retail_value">Sale price / سعر البيع</FieldLabel>
+                                        <Input
+                                            id="original_retail_value"
+                                            type="number"
+                                            inputMode="decimal"
+                                            min={0}
+                                            step="0.01"
+                                            value={form.data.original_retail_value}
+                                            onChange={(event) =>
+                                                form.setData('original_retail_value', event.target.value)
+                                            }
+                                            placeholder="0.00"
+                                        />
+                                        <FieldError
+                                            message={stepErrors.original_retail_value ?? form.errors.original_retail_value}
+                                        />
+                                    </div>
+                                </div>
+                            </>
+                        ) : null}
                     </section>
                 ) : null}
 
@@ -706,7 +819,7 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
                                             className="relative aspect-[3/4] overflow-hidden border border-stone-line"
                                         >
                                             <img
-                                                src={image.path}
+                                                src={resolveImageUrl(image.path)}
                                                 alt={image.alt_text ?? dress.title}
                                                 className="h-full w-full object-cover"
                                             />
@@ -722,14 +835,44 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
                         ) : null}
 
                         <div>
-                            <p className="text-xs uppercase tracking-luxe text-stone-muted">Add photos</p>
+                            <p className="text-xs uppercase tracking-luxe text-stone-muted">{tr('إضافة صور الفستان', 'Add Photos')}</p>
                             <p className="mt-1 text-sm text-stone-muted">
-                                JPEG, PNG or WebP — up to 12 files. The first photo is the primary image.
+                                {tr('صيغ مدعومة: JPEG, PNG, WebP — حتى 12 صورة. الصورة الأولى هي غلاف العرض بالمتجر.', 'JPEG, PNG or WebP — up to 12 files. The first photo is the primary storefront cover.')}
                             </p>
-                            <label htmlFor="dress-images" className="mt-4 block cursor-pointer">
-                                <div className="flex flex-col items-center justify-center gap-2 border border-dashed border-stone-line bg-ivory/50 px-6 py-10 text-center transition-colors hover:border-champagne">
-                                    <ImagePlus className="h-6 w-6 text-champagne" aria-hidden="true" />
-                                    <span className="text-sm font-medium text-charcoal">Choose photos</span>
+                            <label
+                                htmlFor="dress-images"
+                                className="mt-4 block cursor-pointer"
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    setIsDragging(true);
+                                }}
+                                onDragLeave={(e) => {
+                                    e.preventDefault();
+                                    setIsDragging(false);
+                                }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setIsDragging(false);
+                                    if (e.dataTransfer.files) {
+                                        handleFileList(Array.from(e.dataTransfer.files));
+                                    }
+                                }}
+                            >
+                                <div
+                                    className={cn(
+                                        'flex flex-col items-center justify-center gap-2 border-2 border-dashed px-6 py-10 text-center transition-colors rounded-2xl',
+                                        isDragging
+                                            ? 'border-amber-600 bg-amber-50/60 dark:bg-amber-950/40'
+                                            : 'border-stone-line bg-ivory/50 hover:border-champagne'
+                                    )}
+                                >
+                                    <UploadCloud className="h-8 w-8 text-champagne" aria-hidden="true" />
+                                    <span className="text-sm font-semibold text-charcoal">
+                                        {tr('اسحبي الصور وأفلتيها هنا أو انقري لاختيار الصور', 'Drag & drop dress photos here or browse')}
+                                    </span>
+                                    <span className="text-xs text-stone-muted">
+                                        {tr('انقري للاختيار من جهازك (اختيار صور متعددة)', 'Click to browse files from device (multi-select enabled)')}
+                                    </span>
                                 </div>
                             </label>
                             <Input
@@ -750,12 +893,12 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
 
                         {previews.length > 0 ? (
                             <div>
-                                <p className="text-xs uppercase tracking-luxe text-stone-muted">New photos</p>
+                                <p className="text-xs uppercase tracking-luxe text-stone-muted">{tr('الصور المرفوعة الجديدة', 'New Photos')}</p>
                                 <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4">
                                     {previews.map((preview, index) => (
                                         <div
                                             key={preview.id}
-                                            className="group relative aspect-[3/4] overflow-hidden border border-stone-line"
+                                            className="group relative aspect-[3/4] overflow-hidden rounded-xl border border-stone-line"
                                         >
                                             <img
                                                 src={preview.url}
@@ -763,24 +906,24 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
                                                 className="h-full w-full object-cover"
                                             />
                                             {index === 0 ? (
-                                                <span className="absolute left-2 top-2 bg-champagne px-2 py-0.5 text-[10px] uppercase tracking-wider text-charcoal">
-                                                    Primary
+                                                <span className="absolute left-2 top-2 bg-champagne px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider text-charcoal rounded">
+                                                    {tr('غلاف رئيسي', 'Primary Cover')}
                                                 </span>
                                             ) : (
                                                 <button
                                                     type="button"
                                                     onClick={() => makePrimary(preview.id)}
                                                     aria-label={`Set photo ${index + 1} as primary`}
-                                                    className="absolute left-2 top-2 bg-white/90 px-2 py-0.5 text-[10px] uppercase tracking-wider text-charcoal opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose"
+                                                    className="absolute left-2 top-2 bg-white/95 px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider text-charcoal opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 rounded"
                                                 >
-                                                    Set primary
+                                                    {tr('تعيين كغلاف', 'Set Primary')}
                                                 </button>
                                             )}
                                             <button
                                                 type="button"
                                                 onClick={() => removePreview(preview.id)}
                                                 aria-label={`Remove photo ${index + 1}`}
-                                                className="absolute right-2 top-2 rounded-full bg-charcoal/80 p-1.5 text-white transition-colors hover:bg-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose"
+                                                className="absolute right-2 top-2 rounded-full bg-charcoal/80 p-1.5 text-white transition-colors hover:bg-danger focus-visible:outline-none"
                                             >
                                                 <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                                             </button>
@@ -807,23 +950,42 @@ export function DressCreateEdit({ mode, atelier, categories, dress }: DressCreat
                     </div>
                 ) : null}
 
-                <div className="flex items-center justify-between border-t border-stone-line pt-6">
+                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-stone-line pt-6">
                     <Button
                         type="button"
                         variant="ghost"
                         onClick={() => setStep((current) => Math.max(0, current - 1))}
                         disabled={step === 0 || form.processing}
                     >
-                        Back
+                        {tr('السابق', 'Back')}
                     </Button>
                     {step < STEPS.length - 1 ? (
                         <Button type="button" onClick={handleContinue} disabled={form.processing}>
-                            Continue
+                            {tr('متابعة', 'Continue')}
                         </Button>
                     ) : (
-                        <Button type="submit" variant="champagne" disabled={form.processing}>
-                            {mode === 'create' ? 'Create dress' : 'Save changes'}
-                        </Button>
+                        <div className="flex items-center gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={form.processing}
+                                onClick={() => submitWithPublish(false)}
+                                className="text-xs"
+                            >
+                                {tr('حفظ كمسودة (غير معروض)', 'Save as Draft')}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="champagne"
+                                disabled={form.processing}
+                                onClick={() => submitWithPublish(true)}
+                                className="text-xs font-bold"
+                            >
+                                {mode === 'create'
+                                    ? tr('نشر الفستان في المتجر الآن 🚀', 'Publish Dress Now 🚀')
+                                    : tr('تحديث ونشر الفستان', 'Save & Publish')}
+                            </Button>
+                        </div>
                     )}
                 </div>
             </form>

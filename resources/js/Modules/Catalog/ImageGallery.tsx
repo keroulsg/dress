@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import { HighResGalleryModal } from '../../Modules/Media';
-import { cn } from '../../Lib/utils';
+import { cn, resolveImageUrl } from '../../Lib/utils';
 
 export interface ImageGalleryImage {
     id: number;
@@ -27,7 +27,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
     const gallery = useMemo(
         () =>
             ordered.map((image, index) => ({
-                src: image.path,
+                src: resolveImageUrl(image.path),
                 alt: image.alt ?? `${title ?? 'Dress'} — photo ${index + 1}`,
             })),
         [ordered, title],
@@ -45,7 +45,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
                 <div className="aspect-[3/4] overflow-hidden border border-stone-line bg-ivory">
                     {active ? (
                         <img
-                            src={active.path}
+                            src={resolveImageUrl(active.path)}
                             alt={active.alt ?? title ?? 'Dress'}
                             className="h-full w-full object-cover"
                         />
@@ -74,7 +74,7 @@ export function ImageGallery({ images, title }: ImageGalleryProps) {
                             )}
                         >
                             <img
-                                src={image.thumbnail ?? image.path}
+                                src={resolveImageUrl(image.thumbnail ?? image.path)}
                                 alt=""
                                 loading="lazy"
                                 className="h-full w-full object-cover"

@@ -48,9 +48,9 @@ class CatalogBrowsingTest extends TestCase
         $this->get('/catalog')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Catalog/Index')
-                ->has('dresses', 3)
-                ->where('pagination.total', 3));
+                ->component('Storefront/Catalog')
+                ->has('dresses.data', 3)
+                ->where('dresses.total', 3));
     }
 
     public function test_catalog_filters_by_category_size_and_price_bounds(): void
@@ -69,11 +69,11 @@ class CatalogBrowsingTest extends TestCase
         ]);
         DressSize::query()->create(['dress_id' => $expensive->id, 'size_code' => 'M', 'is_available' => true]);
 
-        $this->get('/catalog?category[]='.$this->categoryA->id.'&sizes[]=S&price_max=600')
+        $this->get('/catalog?category_id='.$this->categoryA->id.'&size=S&max_price=600')
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->where('pagination.total', 1)
-                ->where('dresses.0.id', $cheap->id));
+                ->where('dresses.total', 1)
+                ->where('dresses.data.0.id', $cheap->id));
     }
 
     public function test_catalog_price_sort_ascending(): void
@@ -91,7 +91,7 @@ class CatalogBrowsingTest extends TestCase
 
         $this->get('/catalog?sort=price_asc')
             ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->where('dresses.0.id', $cheap->id));
+            ->assertInertia(fn (Assert $page) => $page->where('dresses.data.0.id', $cheap->id));
     }
 
     public function test_draft_dress_returns_404_on_storefront(): void
@@ -101,7 +101,7 @@ class CatalogBrowsingTest extends TestCase
             'category_id' => $this->categoryA->id,
         ]);
 
-        $this->get('/catalog/'.$draft->slug)->assertNotFound();
+        $this->get('/dresses/'.$draft->slug)->assertNotFound();
     }
 
     public function test_active_dress_detail_renders(): void
@@ -112,11 +112,10 @@ class CatalogBrowsingTest extends TestCase
         ]);
         DressSize::query()->create(['dress_id' => $dress->id, 'size_code' => 'M', 'bust' => 90, 'waist' => 70, 'hips' => 95, 'length' => 150, 'is_available' => true]);
 
-        $this->get('/catalog/'.$dress->slug)
+        $this->get('/dresses/'.$dress->slug)
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('Catalog/Show')
-                ->where('dress.id', $dress->id)
-                ->where('dress.sizes.0.size_code', 'M'));
+                ->component('Storefront/DressShow')
+                ->where('dress.id', $dress->id));
     }
 }

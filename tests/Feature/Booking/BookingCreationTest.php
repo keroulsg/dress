@@ -113,10 +113,10 @@ class BookingCreationTest extends TestCase
 
         $booking = Booking::query()->latest('id')->first();
 
-        // Server-side: 500 × 3 days = 1500; cleaning 150; tax (1500+150)×0.14 = 231; deposit 2000 => 3881.00
-        $this->assertSame('1500.00', $booking->rental_rate_total);
+        // Server-side flat rate: 500; cleaning 150; tax (500+150)×0.14 = 91; deposit 2000 => 2741.00
+        $this->assertSame('500.00', $booking->rental_rate_total);
         $this->assertSame('2000.00', $booking->security_deposit_amount);
-        $this->assertSame('3881.00', $booking->grand_total);
+        $this->assertSame('2741.00', $booking->grand_total);
     }
 
     public function test_duplicate_submission_with_same_token_is_idempotent(): void
@@ -144,14 +144,16 @@ class BookingCreationTest extends TestCase
         $this->assertSame(1, DressAvailability::query()->where('reason', 'confirmed_booking')->count());
     }
 
-    public function test_unverified_renter_cannot_checkout(): void
+    public function test_unverified_renter_can_checkout(): void
     {
         $unverified = UserFactory::new()->renter()->create();
 
         $this->actingAs($unverified)
             ->post("/checkout/{$this->dress->id}", $this->payload())
-            ->assertForbidden();
+            ->assertRedirect();
 
-        $this->assertSame(0, Booking::query()->count());
+        $this->assertSame(1, Booking::query()->where('renter_id', $unverified->id)->count());
+        $booking = Booking::query()->where('renter_id', $unverified->id)->first();
+        $this->assertSame('pending_payment', $booking->status->value);
     }
 }

@@ -10,6 +10,24 @@
         <!-- Fonts -->
         @routes
         @viteReactRefresh
+        <script>
+            (function() {
+                try {
+                    var theme = localStorage.getItem('maison_theme');
+                    if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                        document.documentElement.classList.add('dark');
+                        document.documentElement.style.colorScheme = 'dark';
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        document.documentElement.style.colorScheme = 'light';
+                    }
+                    var locale = localStorage.getItem('maison_locale') || 'ar';
+                    document.documentElement.setAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
+                    document.documentElement.setAttribute('lang', locale);
+                } catch (e) {}
+            })();
+        </script>
+
         @vite(['resources/css/app.css', 'resources/js/app.tsx'])
         @inertiaHead
     </head>

@@ -63,7 +63,18 @@ class EloquentCatalogRepository implements CatalogRepository
         $sizes = $data['sizes'] ?? [];
         unset($data['sizes']);
 
-        $dress = Dress::query()->create([...$data, 'atelier_id' => $atelierId, 'status' => 'draft']);
+        $publishNow = (bool) ($data['publish_now'] ?? false);
+        unset($data['publish_now']);
+
+        $status = $publishNow ? 'active' : 'draft';
+        $publishedAt = $publishNow ? now() : null;
+
+        $dress = Dress::query()->create([
+            ...$data,
+            'atelier_id' => $atelierId,
+            'status' => $status,
+            'published_at' => $publishedAt,
+        ]);
 
         if ($sizes !== []) {
             $this->syncSizes($dress->id, $sizes);

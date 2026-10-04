@@ -27,7 +27,7 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect('/account/overview');
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
@@ -40,6 +40,37 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertGuest();
+    }
+
+    public function test_superadmin_redirects_to_finance(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'superadmin',
+            'email' => 'admin@dress.test',
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => $admin->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect('/admin/finance');
+    }
+
+    public function test_atelier_owner_redirects_to_dresses(): void
+    {
+        $owner = User::factory()->create([
+            'role' => 'atelier_owner',
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => $owner->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect('/atelier/1/dresses');
     }
 
     public function test_users_can_logout(): void

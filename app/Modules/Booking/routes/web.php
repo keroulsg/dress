@@ -13,7 +13,7 @@ Route::middleware('web')->group(function (): void {
         ->name('checkout.show');
 
     Route::post('/checkout/{dress}', [BookingCheckoutController::class, 'store'])
-        ->middleware(['auth', 'kyc-verified', 'throttle:checkout'])
+        ->middleware(['auth', 'throttle:checkout'])
         ->name('checkout.store');
 });
 
@@ -21,9 +21,13 @@ Route::middleware(['web', 'auth'])->prefix('/account')->name('customer.')->group
     Route::get('/bookings', [CustomerBookingController::class, 'index'])->name('bookings.index');
     Route::get('/bookings/{booking}', [CustomerBookingController::class, 'show'])->name('bookings.show');
     Route::post('/bookings/{booking}/cancel', [CustomerBookingController::class, 'cancel'])->name('bookings.cancel');
+    Route::post('/bookings/{booking}/flag-deposit-withheld', [CustomerBookingController::class, 'flagDepositWithheld'])->name('bookings.flagDepositWithheld');
 });
 
 Route::middleware(['web', 'auth', 'atelier'])->prefix('/atelier/{atelier}')->name('atelier.')->group(function (): void {
     Route::get('/bookings', [AtelierBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/bookings/{booking}', [AtelierBookingController::class, 'show'])->name('bookings.show');
     Route::post('/bookings/{booking}/transition', [AtelierBookingController::class, 'transition'])->name('bookings.transition');
+    Route::post('/bookings/{booking}/confirm-deposit-refunded', [AtelierBookingController::class, 'confirmDepositRefunded'])->name('bookings.confirmDepositRefunded');
+    Route::post('/bookings/{booking}/damage-claim', [AtelierBookingController::class, 'fileDamageClaim'])->name('bookings.fileDamageClaim');
 });

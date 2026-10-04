@@ -58,19 +58,24 @@ class DressManagementController extends Controller
             silhouette: $request->input('silhouette'),
             colorPrimary: $request->input('color_primary'),
             originalRetailValue: (float) ($request->input('original_retail_value', 0)),
-            rentalPricePerDay: (float) $request->input('rental_price_per_day'),
-            securityDepositAmount: (float) $request->input('security_deposit_amount'),
+            rentalPricePerDay: (float) ($request->input('rental_price_per_day', 0)),
+            securityDepositAmount: (float) ($request->input('security_deposit_amount', 0)),
             cleaningFee: (float) ($request->input('cleaning_fee', 0)),
-            lateFeePerDay: (float) $request->input('late_fee_per_day'),
+            lateFeePerDay: (float) ($request->input('late_fee_per_day', 0)),
             turnaroundBufferDays: (int) $request->integer('turnaround_buffer_days', 2),
             conditionRating: (string) $request->input('condition_rating', 'good'),
+            listingMode: (string) $request->input('listing_mode', 'rent'),
+            productType: (string) ($request->input('product_type') ?: 'dress'),
             sizes: (array) $request->input('sizes', []),
             images: $request->file('images', []),
+            publishNow: $request->boolean('publish_now', false),
         );
 
         $this->management->createDress($atelier->id, $dto);
 
-        return redirect()->route('atelier.dresses.index', $atelier)->with('success', 'Dress created.');
+        $message = $dto->publishNow ? 'تم نشر الفستان في المتجر بنجاح.' : 'تم حفظ الفستان كمسودة.';
+
+        return redirect()->route('atelier.dresses.index', $atelier)->with('success', $message);
     }
 
     public function edit(Atelier $atelier, Dress $dress): Response
@@ -84,6 +89,9 @@ class DressManagementController extends Controller
                 'id' => $dress->id,
                 'title' => $dress->title,
                 'category_id' => $dress->category_id,
+                'product_type' => $dress->product_type ?? 'dress',
+                'allows_rent' => (bool) $dress->allows_rent,
+                'allows_sale' => (bool) $dress->allows_sale,
                 'description' => $dress->description,
                 'fabric_type' => $dress->fabric_type,
                 'silhouette' => $dress->silhouette,
@@ -95,6 +103,7 @@ class DressManagementController extends Controller
                 'late_fee_per_day' => $dress->late_fee_per_day,
                 'turnaround_buffer_days' => $dress->turnaround_buffer_days,
                 'condition_rating' => $dress->condition_rating,
+                'listing_mode' => $dress->listing_mode ?? 'rent',
                 'status' => $dress->status,
                 'sizes' => $dress->sizes->map(fn ($size): array => [
                     'id' => $size->id,
@@ -132,8 +141,11 @@ class DressManagementController extends Controller
             lateFeePerDay: $request->filled('late_fee_per_day') ? (float) $request->input('late_fee_per_day') : null,
             turnaroundBufferDays: $request->filled('turnaround_buffer_days') ? (int) $request->integer('turnaround_buffer_days') : null,
             conditionRating: $request->input('condition_rating'),
+            listingMode: $request->input('listing_mode'),
+            productType: $request->input('product_type'),
             sizes: (array) $request->input('sizes', []),
             images: $request->file('images', []),
+            publishNow: $request->has('publish_now') ? $request->boolean('publish_now') : null,
         );
 
         $this->management->updateDress($dress->id, $dto);

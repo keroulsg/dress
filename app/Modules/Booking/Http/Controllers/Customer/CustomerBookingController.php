@@ -6,9 +6,11 @@ namespace App\Modules\Booking\Http\Controllers\Customer;
 
 use App\Modules\Booking\Domain\Contracts\BookingOrchestratorContract;
 use App\Modules\Booking\Domain\Entities\Booking;
+use App\Modules\Booking\Domain\Enums\BookingStatus;
 use App\Modules\Booking\Http\Requests\CancelBookingRequest;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -43,9 +45,27 @@ class CustomerBookingController extends Controller
 
         $booking->load(['atelier', 'items.dress:id,title,slug']);
 
+        $isPaid = $booking->status !== BookingStatus::PendingPayment;
+        $atelier = $booking->atelier;
+
+        $atelierPayload = $atelier ? [
+            'id' => $atelier->id,
+            'business_name' => $atelier->business_name,
+            'city' => $atelier->city ?? 'Cairo',
+            'address' => $isPaid ? $atelier->address : null,
+            'phone' => $isPaid ? $atelier->phone : null,
+            'whatsapp' => $isPaid ? ($atelier->whatsapp_number ?? $atelier->phone) : null,
+            'email' => $isPaid ? $atelier->email : null,
+            'maps_url' => $isPaid ? ($atelier->latitude && $atelier->longitude
+                ? "https://www.google.com/maps/search/?api=1&query={$atelier->latitude},{$atelier->longitude}"
+                : 'https://www.google.com/maps/search/?api=1&query='.urlencode(($atelier->business_name ?? '').' '.($atelier->address ?? '').' '.($atelier->city ?? ''))) : null,
+            'is_details_revealed' => $isPaid,
+        ] : null;
+
         return Inertia::render('Customer/Bookings/Show', [
             'booking' => [
                 ...$booking->toArray(),
+                'atelier' => $atelierPayload,
                 'items' => $booking->items->map(fn ($item): array => [
                     'dress_title' => $item->dress?->title,
                     'quantity' => $item->quantity,
@@ -64,8 +84,37 @@ class CustomerBookingController extends Controller
         return back()->with('success', 'Booking cancelled and dates released.');
     }
 
+    public function flagDepositWithheld(Request $request, Booking $booking): RedirectResponse
+    {
+        $this->authorize('view', $booking);
+
+        if ($booking->order_type === 'direct_sale') {
+            return back()->with('error', 'الطلبات المباشرة لا تتضمن مبلغ تأمين.');
+        }
+
+        // Freeze store payout
+        if ($booking->atelier) {
+            $booking->atelier->blockPayouts();
+        }
+
+        $booking->deposit_disputed = true;
+        $booking->save();
+
+        if (in_array($booking->status, [BookingStatus::ReturnedPendingInspection, BookingStatus::InspectionCompleted], true)) {
+            $this->bookings->transitionStatus($booking->id, BookingStatus::Disputed, [
+                'actor_id' => (int) $request->user()->id,
+                'reason' => 'نزاع من العميلة: تم تسليم القطعة ولم يتم رد التأمين.',
+            ]);
+        }
+
+        return back()->with('success', 'تم تجميد مستحقات المتجر وفتح شكوى رسمية للإدارة المركزية للتحقيق الفوري.');
+    }
+
     private function toCard(Booking $booking): array
     {
+        $firstItem = $booking->items->first();
+        $dress = $firstItem?->dress;
+
         return [
             'id' => $booking->id,
             'booking_reference' => $booking->booking_reference,
@@ -75,7 +124,10 @@ class CustomerBookingController extends Controller
             'grand_total' => $booking->grand_total,
             'currency' => $booking->currency,
             'atelier' => $booking->atelier?->business_name,
-            'dress_title' => $booking->items->first()?->dress?->title,
+            'dress_title' => $dress?->title,
+            'dress_slug' => $dress?->slug,
+            'dress_id' => $dress?->id,
+            'payment_url' => $booking->status === BookingStatus::PendingPayment ? "/checkout/{$booking->id}/pay" : null,
         ];
     }
 }

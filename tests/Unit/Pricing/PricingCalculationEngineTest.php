@@ -33,6 +33,7 @@ class PricingCalculationEngineTest extends TestCase
             cleaningFee: $overrides['cleaning'] ?? 150,
             securityDeposit: $overrides['deposit'] ?? 2000,
             currency: 'EGP',
+            isDailyBilling: $overrides['is_daily'] ?? true,
         );
     }
 
@@ -66,6 +67,29 @@ class PricingCalculationEngineTest extends TestCase
         // (2331 + 150) × 0.14 = 347.34
         $this->assertSame('347.3400', $breakdown->taxAmount->amount());
         $this->assertSame('2828.3400', $breakdown->chargeableTotal->amount());
+    }
+
+    public function test_flat_period_fee_and_dynamic_25_percent_deposit(): void
+    {
+        // 400 EGP rental price with is_daily = false (flat event window) and deposit = 0 (defaults to 25%)
+        $breakdown = $this->pricing()->calculateBookingTotal($this->dto([
+            'days' => 3,
+            'daily_rate' => 400,
+            'cleaning' => 50,
+            'deposit' => 0,
+            'is_daily' => false,
+        ]));
+
+        // Base rental fee remains flat 400 (NOT 400 x 3)
+        $this->assertSame('400.0000', $breakdown->subtotal->amount());
+        // Dynamic deposit is exactly 25% of 400 = 100 EGP
+        $this->assertSame('100.0000', $breakdown->securityDeposit->amount());
+        // totalBookingValue = 400 + 50 = 450
+        $this->assertSame('450.0000', $breakdown->totalBookingValue->amount());
+        // upfrontReservationFee = 10% of 450 = 45 EGP
+        $this->assertSame('45.0000', $breakdown->upfrontReservationFee->amount());
+        // offlineSettlementBalance = 90% of 450 (405) + 100 deposit = 505 EGP
+        $this->assertSame('505.0000', $breakdown->offlineSettlementBalance->amount());
     }
 
     public function test_deposit_is_never_taxed(): void

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Dress extends Model
@@ -22,6 +23,7 @@ class Dress extends Model
     protected $fillable = [
         'atelier_id',
         'category_id',
+        'product_type',
         'title',
         'slug',
         'sku',
@@ -36,6 +38,9 @@ class Dress extends Model
         'late_fee_per_day',
         'turnaround_buffer_days',
         'condition_rating',
+        'listing_mode',
+        'allows_rent',
+        'allows_sale',
         'status',
         'published_at',
     ];
@@ -50,6 +55,9 @@ class Dress extends Model
             'late_fee_per_day' => 'decimal:2',
             'turnaround_buffer_days' => 'integer',
             'condition_rating' => 'string',
+            'listing_mode' => 'string',
+            'allows_rent' => 'boolean',
+            'allows_sale' => 'boolean',
             'status' => 'string',
             'published_at' => 'datetime',
         ];
@@ -75,6 +83,11 @@ class Dress extends Model
         return $this->hasMany(DressImage::class)->orderBy('display_order');
     }
 
+    public function primaryImage(): HasOne
+    {
+        return $this->hasOne(DressImage::class)->where('is_primary', true);
+    }
+
     public function availabilities(): HasMany
     {
         return $this->hasMany(DressAvailability::class);
@@ -83,6 +96,28 @@ class Dress extends Model
     public function bookingItems(): HasMany
     {
         return $this->hasMany(BookingItem::class);
+    }
+
+    public function isRentable(): bool
+    {
+        return $this->allows_rent && in_array($this->listing_mode, ['rent', 'both'], true);
+    }
+
+    public function isForSale(): bool
+    {
+        return $this->allows_sale || in_array($this->listing_mode, ['sell', 'both'], true);
+    }
+
+    public function getProductTypeLabel(): string
+    {
+        return match ($this->product_type ?? 'dress') {
+            'abaya' => 'عباية / قفطان',
+            'accessory' => 'إكسسوارات زفاف',
+            'jewelry' => 'مجوهرات فاخرة',
+            'bag_shoes' => 'حقائب وأحذية',
+            'handmade' => 'تصميم هاند ميد',
+            default => 'فستان سهرة / زفاف',
+        };
     }
 
     protected static function newFactory(): DressFactory

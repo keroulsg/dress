@@ -53,10 +53,10 @@ class DoubleEntryLedgerService implements LedgerContract
         $netRefund = $refundAmount->subtract($reversalCommission);
 
         $this->post($transaction->id, 'Customer refund', [
-            '1010' => $refundAmount,
-        ], [
             '2020' => $netRefund,
             '4010' => $reversalCommission,
+        ], [
+            '1010' => $refundAmount,
         ]);
     }
 

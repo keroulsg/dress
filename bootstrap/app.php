@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureBelongsToAtelier;
+use App\Http\Middleware\EnsureSuperadmin;
 use App\Http\Middleware\EnsureUserIsVerified;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'kyc-verified' => EnsureUserIsVerified::class,
             'atelier' => EnsureBelongsToAtelier::class,
+            'superadmin' => EnsureSuperadmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

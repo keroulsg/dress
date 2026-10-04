@@ -25,6 +25,7 @@ export function usePermissions(): string[] {
 
 export const ROLE_LABELS: Record<Role, string> = {
     superadmin: 'Superadmin',
+    super_admin: 'Superadmin',
     atelier_owner: 'Atelier owner',
     atelier_staff: 'Atelier staff',
     renter: 'Renter',

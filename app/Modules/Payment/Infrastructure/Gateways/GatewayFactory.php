@@ -22,12 +22,16 @@ class GatewayFactory
         $driver = (string) config('payment.gateway', 'mock');
         $environment = $this->app->environment();
 
+        if ($driver === 'paymob') {
+            return $this->app->make(PaymobPaymentGateway::class);
+        }
+
         if ($driver === 'mock' || in_array($environment, ['local', 'testing'], true)) {
             return $this->app->make(MockPaymentGateway::class);
         }
 
         throw PaymentFailedException::gatewayError(
-            'No payment gateway driver is configured for the production environment.',
+            'No valid payment gateway driver is configured for the production environment.',
         );
     }
 }

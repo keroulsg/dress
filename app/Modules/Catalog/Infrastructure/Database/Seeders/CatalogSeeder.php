@@ -50,6 +50,7 @@ class CatalogSeeder extends Seeder
             $atelier = $ateliers[$index % $ateliers->count()];
             $category = $categories[$index % count($categories)];
             $slug = Str::slug($title);
+            $rentalRate = fake()->randomFloat(2, 250, 1200);
 
             $dress = Dress::query()->create([
                 'atelier_id' => $atelier->id,
@@ -62,8 +63,8 @@ class CatalogSeeder extends Seeder
                 'silhouette' => $silhouettes[$index % count($silhouettes)],
                 'color_primary' => $colors[$index % count($colors)],
                 'original_retail_value' => fake()->randomFloat(2, 4000, 18000),
-                'rental_price_per_day' => fake()->randomFloat(2, 250, 1200),
-                'security_deposit_amount' => fake()->randomFloat(2, 800, 3000),
+                'rental_price_per_day' => $rentalRate,
+                'security_deposit_amount' => round($rentalRate * 0.25, 2),
                 'cleaning_fee' => fake()->randomFloat(2, 80, 250),
                 'late_fee_per_day' => fake()->randomFloat(2, 100, 300),
                 'turnaround_buffer_days' => 2,
@@ -106,17 +107,36 @@ class CatalogSeeder extends Seeder
 
     private function seedImages(Dress $dress): void
     {
-        $count = rand(2, 3);
+        $realGowns = [
+            'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&q=80&w=800',
+            'https://images.unsplash.com/photo-1566174053879-31528523f8ae?auto=format&fit=crop&q=80&w=800',
+            'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&q=80&w=800',
+            'https://images.unsplash.com/photo-1539008835657-9e8e9680c956?auto=format&fit=crop&q=80&w=800',
+            'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&q=80&w=800',
+            'https://images.unsplash.com/photo-1568252542512-9fe8fe9c87bb?auto=format&fit=crop&q=80&w=800',
+            'https://images.unsplash.com/photo-1585487000160-6ebcfceb0d03?auto=format&fit=crop&q=80&w=800',
+            'https://images.unsplash.com/photo-1549576490-b0b4831ef60a?auto=format&fit=crop&q=80&w=800',
+        ];
 
-        for ($i = 1; $i <= $count; $i++) {
-            DressImage::query()->create([
-                'dress_id' => $dress->id,
-                'image_path' => "dresses/{$dress->slug}/{$i}.webp",
-                'thumbnail_path' => "dresses/{$dress->slug}/thumb-{$i}.webp",
-                'display_order' => $i,
-                'is_primary' => $i === 1,
-                'alt_text' => $dress->title.' — view '.$i,
-            ]);
-        }
+        $primaryUrl = $realGowns[$dress->id % count($realGowns)];
+        $secondaryUrl = $realGowns[($dress->id + 1) % count($realGowns)];
+
+        DressImage::query()->create([
+            'dress_id' => $dress->id,
+            'image_path' => $primaryUrl,
+            'thumbnail_path' => $primaryUrl,
+            'display_order' => 1,
+            'is_primary' => true,
+            'alt_text' => $dress->title.' — Primary View',
+        ]);
+
+        DressImage::query()->create([
+            'dress_id' => $dress->id,
+            'image_path' => $secondaryUrl,
+            'thumbnail_path' => $secondaryUrl,
+            'display_order' => 2,
+            'is_primary' => false,
+            'alt_text' => $dress->title.' — Detail View',
+        ]);
     }
 }

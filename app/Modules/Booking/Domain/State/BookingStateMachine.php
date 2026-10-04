@@ -46,6 +46,8 @@ final class BookingStateMachine
         ],
         BookingStatus::ReturnedPendingInspection->value => [
             BookingStatus::InspectionCompleted->value => ['actor' => 'system', 'effects' => ['notify_inspected']],
+            BookingStatus::Completed->value => ['actor' => 'any', 'effects' => ['mark_available', 'notify_completed']],
+            BookingStatus::Disputed->value => ['actor' => 'any', 'effects' => ['notify_disputed']],
         ],
         BookingStatus::InspectionCompleted->value => [
             BookingStatus::Completed->value => ['actor' => 'system', 'effects' => ['mark_available', 'notify_completed']],
@@ -88,6 +90,7 @@ final class BookingStateMachine
     public function apply(Booking $booking, BookingStatus $to): void
     {
         $this->assertTransition($booking->status, $to);
+        $booking->status_mutated_by_machine = true;
         $booking->status = $to;
     }
 }

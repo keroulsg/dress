@@ -182,7 +182,7 @@ class CatalogService implements CatalogReader, DressManagementContract
                 'slug' => $dress->slug,
                 'status' => $dress->status,
                 'rental_price_per_day' => $dress->rental_price_per_day,
-                'primary_image' => $primary?->thumbnail_path,
+                'primary_image' => $primary?->thumbnail_path ?? $primary?->image_path,
                 'category' => $dress->category?->name,
                 'updated_at' => $dress->updated_at?->toDateTimeString(),
             ];
@@ -217,7 +217,12 @@ class CatalogService implements CatalogReader, DressManagementContract
             'late_fee_per_day' => $dto->lateFeePerDay,
             'turnaround_buffer_days' => $dto->turnaroundBufferDays,
             'condition_rating' => $dto->conditionRating,
+            'listing_mode' => $dto->listingMode,
+            'product_type' => $dto->productType,
+            'allows_rent' => $dto->allowsRent ?? in_array($dto->listingMode, ['rent', 'both'], true),
+            'allows_sale' => $dto->allowsSale ?? in_array($dto->listingMode, ['sell', 'both'], true),
             'sizes' => $dto->sizes,
+            'publish_now' => $dto->publishNow,
         ], $atelierId);
 
         if ($dto->images !== []) {

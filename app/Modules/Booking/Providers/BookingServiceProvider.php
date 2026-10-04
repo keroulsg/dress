@@ -8,6 +8,7 @@ use App\Modules\Booking\Application\Services\BookingService;
 use App\Modules\Booking\Domain\Contracts\BookingOrchestratorContract;
 use App\Modules\Booking\Domain\Entities\Booking;
 use App\Modules\Booking\Domain\Policies\BookingPolicy;
+use App\Modules\Booking\Infrastructure\Console\Commands\AutoResolveReturnedBookings;
 use App\Modules\Booking\Infrastructure\Console\Commands\ExpirePendingBookings;
 use App\Modules\Booking\Infrastructure\Observers\BookingObserver;
 use App\Modules\Booking\Infrastructure\Repositories\BookingRepository;
@@ -28,7 +29,10 @@ class BookingServiceProvider extends ServiceProvider
         Gate::policy(Booking::class, BookingPolicy::class);
         Booking::observe(BookingObserver::class);
 
-        $this->commands([ExpirePendingBookings::class]);
+        $this->commands([
+            ExpirePendingBookings::class,
+            AutoResolveReturnedBookings::class,
+        ]);
 
         $this->loadMigrationsFrom(__DIR__.'/../Infrastructure/Database/Migrations');
 

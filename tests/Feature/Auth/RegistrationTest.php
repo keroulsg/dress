@@ -23,9 +23,28 @@ class RegistrationTest extends TestCase
             'email' => 'test@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
+            'role' => 'renter',
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('storefront.catalog', absolute: false));
+    }
+
+    public function test_sellers_can_register_and_get_atelier(): void
+    {
+        $response = $this->post('/register', [
+            'name' => 'Atelier Owner',
+            'email' => 'seller@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'role' => 'atelier_owner',
+            'business_name' => 'Luxury Boutique',
+        ]);
+
+        $this->assertAuthenticated();
+        $this->assertDatabaseHas('ateliers', [
+            'business_name' => 'Luxury Boutique',
+        ]);
+        $response->assertRedirect('/atelier/1/dresses');
     }
 }
