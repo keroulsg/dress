@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Pricing\Application\Services;
 
+use App\Models\PlatformSetting;
 use App\Modules\Catalog\Domain\Contracts\CatalogReader;
 use App\Modules\Pricing\Application\DTOs\CouponDiscountDTO;
 use App\Modules\Pricing\Application\DTOs\DepositSettlementDTO;
@@ -218,9 +219,14 @@ class PricingService implements PricingContract
             return $override;
         }
 
-        $rate = config("pricing.tax_rates.{$currency}");
+        $vatEnabled = (bool) PlatformSetting::get('vat_enabled', false);
+        if (! $vatEnabled) {
+            return 0.00;
+        }
 
-        return is_numeric($rate) ? (float) $rate : (float) config('pricing.tax_rate', 0.14);
+        $rate = PlatformSetting::get('vat_rate', config("pricing.tax_rates.{$currency}", config('pricing.tax_rate', 0.14)));
+
+        return is_numeric($rate) ? (float) $rate : 0.14;
     }
 
     private function deliveryFeeFor(?string $city, string $currency): Money

@@ -58,7 +58,9 @@ export function PricingBreakdownWidget({
                 {hasDelivery ? (
                     <Row label="Regional delivery & white-glove handover" value={formatCurrency(breakdown.delivery_fee.amount, currency)} />
                 ) : null}
-                <Row label={`VAT / sales tax · ${taxPercent}%`} value={formatCurrency(breakdown.tax_amount.amount, currency)} />
+                {!isZeroAmount(breakdown.tax_amount.amount) && (
+                    <Row label={`VAT / sales tax · ${taxPercent}%`} value={formatCurrency(breakdown.tax_amount.amount, currency)} />
+                )}
 
                 {hasDiscount && onRemoveCoupon ? (
                     <div className="flex items-center justify-between gap-4 py-1.5 text-sm">

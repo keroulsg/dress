@@ -6,7 +6,7 @@
  * Fitting appointment requirement is completely removed as requested.
  */
 
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { Check, CheckCircle2, ShieldCheck, ShoppingBag, Sparkles, Upload } from 'lucide-react';
 import * as React from 'react';
 
@@ -19,6 +19,7 @@ import { useLanguage } from '../../Contexts/LanguageContext';
 import { formatCurrency } from '../../Lib/currency';
 import { rentalDayCount } from '../../Lib/dates';
 import { cn, resolveImageUrl } from '../../Lib/utils';
+import type { PageProps } from '../../types';
 import {
     AvailabilityCalendarGrid,
     useMonthAvailability,
@@ -59,8 +60,6 @@ interface BookingFormData {
     id_front: File | null;
     id_back: File | null;
 }
-
-const TAX_RATE = 0.14;
 
 function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
     return (
@@ -206,6 +205,10 @@ export function BookingWizard({ dress, userKyc }: BookingWizardProps) {
         { key: 'payment', label: tr('تأكيد الطلب', 'Confirmation') },
     ];
 
+    const page = usePage<PageProps>();
+    const vatEnabled = page.props.platform_settings?.vat_enabled ?? false;
+    const vatRate = vatEnabled ? (page.props.platform_settings?.vat_rate ?? 0.14) : 0;
+
     // Pricing calculations
     const dailyRateNum = Math.max(0, Number(dress.rental_price_per_day.amount) || 0);
     const cleaningFeeNum = Math.max(0, Number(dress.cleaning_fee.amount) || 0);
@@ -219,7 +222,7 @@ export function BookingWizard({ dress, userKyc }: BookingWizardProps) {
     const offlineRentalBalance = totalBookingValue - onlineReservationFee;
     const totalDueAtAtelier = offlineRentalBalance + securityDepositNum;
 
-    const purchaseTax = purchasePriceNum * TAX_RATE;
+    const purchaseTax = purchasePriceNum * vatRate;
     const purchaseTotal = purchasePriceNum + cleaningFeeNum + purchaseTax;
 
     return (
@@ -710,10 +713,12 @@ export function BookingWizard({ dress, userKyc }: BookingWizardProps) {
                                             <span>{tr('تغليف فاخر وشحن مخصص', 'Luxury Packaging & Dispatch')}</span>
                                             <span className="font-mono font-medium text-stone-900 dark:text-stone-100">{formatCurrency(cleaningFeeNum.toFixed(2), currency)}</span>
                                         </div>
-                                        <div className="flex justify-between items-center text-stone-600 dark:text-stone-300">
-                                            <span>{tr('ضريبة القيمة المضافة (14%)', 'Taxes & Fees (14%)')}</span>
-                                            <span className="font-mono font-medium text-stone-900 dark:text-stone-100">{formatCurrency(purchaseTax.toFixed(2), currency)}</span>
-                                        </div>
+                                        {vatEnabled && purchaseTax > 0 && (
+                                            <div className="flex justify-between items-center text-stone-600 dark:text-stone-300">
+                                                <span>{tr(`ضريبة القيمة المضافة (${Math.round(vatRate * 100)}%)`, `Taxes & Fees (${Math.round(vatRate * 100)}%)`)}</span>
+                                                <span className="font-mono font-medium text-stone-900 dark:text-stone-100">{formatCurrency(purchaseTax.toFixed(2), currency)}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between items-center text-stone-600 dark:text-stone-300">
                                             <span>{tr('مبلغ التأمين', 'Security Deposit')}</span>
                                             <span className="font-mono font-medium text-stone-400">0.00 {currency} ({tr('لا يوجد تأمين', 'No deposit')})</span>

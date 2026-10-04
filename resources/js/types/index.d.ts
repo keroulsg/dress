@@ -16,6 +16,10 @@ export type PageProps<
     auth: {
         user: User;
     };
+    platform_settings?: {
+        vat_enabled?: boolean;
+        vat_rate?: number;
+    };
 };
 
 export * from './contracts';

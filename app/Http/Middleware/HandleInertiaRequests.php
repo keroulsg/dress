@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\PlatformSetting;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -41,6 +42,10 @@ class HandleInertiaRequests extends Middleware
                     'role' => $user->role,
                     'atelier_id' => $user->ateliers()->first()?->id ?? $user->staffMemberships()->first()?->atelier_id,
                 ] : null,
+            ],
+            'platform_settings' => [
+                'vat_enabled' => (bool) PlatformSetting::get('vat_enabled', false),
+                'vat_rate' => (float) PlatformSetting::get('vat_rate', 0.14),
             ],
         ];
     }

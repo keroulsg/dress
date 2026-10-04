@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Settings, Save, Shield, Percent, Clock, Lock, CheckCircle2 } from 'lucide-react';
+import { Settings, Save, Shield, Percent, Clock, Lock, CheckCircle2, Receipt } from 'lucide-react';
 import { useLanguage } from '@/Contexts/LanguageContext';
 
 interface Props {
@@ -11,6 +11,8 @@ interface Props {
         rental_buffer_days: number;
         auto_payout_threshold: number;
         require_kyc_for_booking: boolean;
+        vat_enabled: boolean;
+        vat_rate: number;
         maintenance_mode: boolean;
         support_email: string;
         support_phone: string;
@@ -26,6 +28,8 @@ export default function SettingsIndex({ settings }: Props) {
         default_escrow_deposit_percent: settings.default_escrow_deposit_percent,
         rental_buffer_days: settings.rental_buffer_days,
         require_kyc_for_booking: settings.require_kyc_for_booking,
+        vat_enabled: settings.vat_enabled ?? false,
+        vat_rate: settings.vat_rate ?? 0.14,
     });
 
     const submit = (e: React.FormEvent) => {
@@ -113,6 +117,84 @@ export default function SettingsIndex({ settings }: Props) {
                                 <span className="text-[10px] text-stone-400 dark:text-stone-500 mt-1 block">
                                     {tr('مسترد للعميل عند سلامة الفستان', 'Refunded upon verified dress return')}
                                 </span>
+                            </div>
+                        </div>
+
+                        {/* Value Added Tax (VAT) Governance Card */}
+                        <div className="border border-stone-200 dark:border-stone-800 rounded-2xl bg-stone-50/70 dark:bg-stone-800/50 p-5 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200/80 dark:border-stone-700/80 pb-4">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <Receipt className="h-5 w-5 text-amber-700 dark:text-amber-400" />
+                                        <h3 className="font-serif font-bold text-sm sm:text-base text-stone-900 dark:text-stone-100">
+                                            {tr('ضريبة القيمة المضافة (14% VAT)', 'Value Added Tax (14% VAT)')}
+                                        </h3>
+                                    </div>
+                                    <p className="text-[11px] text-stone-500 dark:text-stone-400 mt-1">
+                                        {tr(
+                                            'التحكم في تفعيل أو إخفاء ضريبة القيمة المضافة من فواتير وحسابات العملاء.',
+                                            'Control whether Value Added Tax is computed and charged on customer invoices.'
+                                        )}
+                                    </p>
+                                </div>
+
+                                {/* Toggle Switch */}
+                                <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+                                    <input
+                                        type="checkbox"
+                                        checked={data.vat_enabled}
+                                        onChange={(e) => setData('vat_enabled', e.target.checked)}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-stone-300 peer-focus:outline-none rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                                    <span className={`text-xs font-bold text-stone-900 dark:text-stone-100 ${isRtl ? 'mr-3' : 'ml-3'}`}>
+                                        {data.vat_enabled ? tr('مفعلة', 'Enabled') : tr('معطلة', 'Disabled')}
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                <div>
+                                    {data.vat_enabled ? (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-semibold text-[11px]">
+                                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                            <span>{tr('الضريبة مفعلة حالياً — يتم احتساب 14% وإضافتها للفواتير', 'VAT Active — 14% added to checkout')}</span>
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-600 dark:text-stone-300 font-semibold text-[11px]">
+                                            <span>⚪</span>
+                                            <span>{tr('الضريبة مخفية ومعطلة حالياً — الأسعار صافية 100% بدون أي ضريبة مضافة', 'VAT Disabled & Hidden — 100% net prices without extra tax')}</span>
+                                        </span>
+                                    )}
+                                    <p className="text-[10px] text-stone-400 dark:text-stone-500 mt-1.5">
+                                        {tr(
+                                            'تم تعطيل الضريبة لجعل الحسابات واضحة وبسيطة للمستأجرات. يمكنك تفعيلها مستقبلاً عند بدء السداد الضريبي الرسمي للمنصة.',
+                                            'Disabled to keep calculations simple for brides. You can re-enable anytime when ready to pay official taxes.'
+                                        )}
+                                    </p>
+                                </div>
+
+                                {data.vat_enabled && (
+                                    <div className="w-36 shrink-0">
+                                        <label className="block text-[11px] font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                                            {tr('نسبة الضريبة', 'Tax Rate')}
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="1"
+                                                value={data.vat_rate}
+                                                onChange={(e) => setData('vat_rate', parseFloat(e.target.value))}
+                                                className="w-full rounded-xl border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-900 px-3 py-2 text-xs font-mono font-bold text-stone-900 dark:text-stone-100"
+                                            />
+                                            <span className={`absolute ${isRtl ? 'left-2.5' : 'right-2.5'} top-2 text-xs font-bold text-amber-700 font-mono`}>
+                                                {(data.vat_rate * 100).toFixed(0)}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

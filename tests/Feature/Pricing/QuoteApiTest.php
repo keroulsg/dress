@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Pricing;
 
+use App\Models\PlatformSetting;
 use App\Modules\Atelier\Infrastructure\Database\Factories\AtelierFactory;
 use App\Modules\Catalog\Domain\Entities\Dress;
 use App\Modules\Catalog\Infrastructure\Database\Factories\CategoryFactory;
@@ -37,7 +38,7 @@ class QuoteApiTest extends TestCase
         ]);
     }
 
-    public function test_quote_endpoint_returns_accurate_breakdown(): void
+    public function test_quote_endpoint_returns_accurate_breakdown_with_vat_disabled_by_default(): void
     {
         $start = now()->addDays(3)->toDateString();
         $end = now()->addDays(5)->toDateString();
@@ -52,7 +53,31 @@ class QuoteApiTest extends TestCase
             ->assertJsonPath('rental_days', 3)
             ->assertJsonPath('subtotal.amount', '1500')
             ->assertJsonPath('cleaning_fee.amount', '150')
+            ->assertJsonPath('tax_rate', 0)
+            ->assertJsonPath('tax_amount.amount', '0')
+            ->assertJsonPath('security_deposit.amount', '2000')
+            ->assertJsonPath('grand_total.amount', '3650');
+    }
+
+    public function test_quote_endpoint_includes_tax_when_vat_enabled_by_admin(): void
+    {
+        PlatformSetting::set('vat_enabled', true);
+
+        $start = now()->addDays(3)->toDateString();
+        $end = now()->addDays(5)->toDateString();
+
+        $this->postJson('/api/pricing/quote', [
+            'dress_id' => $this->dress->id,
+            'start_date' => $start,
+            'end_date' => $end,
+            'delivery_requested' => false,
+        ])
+            ->assertOk()
+            ->assertJsonPath('rental_days', 3)
+            ->assertJsonPath('subtotal.amount', '1500')
+            ->assertJsonPath('cleaning_fee.amount', '150')
             ->assertJsonPath('tax_rate', 0.14)
+            ->assertJsonPath('tax_amount.amount', '231')
             ->assertJsonPath('security_deposit.amount', '2000')
             ->assertJsonPath('grand_total.amount', '3881');
     }

@@ -42,6 +42,7 @@ type BookingsShowProps = PageProps<{
         rental_rate_total: string;
         cleaning_fee_total: string;
         security_deposit_amount: string;
+        tax_amount?: string | null;
         atelier?: {
             id: number;
             business_name: string;
@@ -396,6 +397,12 @@ export default function BookingsShow({ booking }: BookingsShowProps) {
                                     <span>{tr('مبلغ التأمين المسترد', 'Refundable Deposit')}</span>
                                     <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(booking.security_deposit_amount, booking.currency)}</span>
                                 </div>
+                                {Number(booking.tax_amount || 0) > 0 && (
+                                    <div className="flex justify-between">
+                                        <span>{tr('ضريبة القيمة المضافة (VAT)', 'Value Added Tax (VAT)')}</span>
+                                        <span className="font-mono font-medium text-stone-900 dark:text-stone-100">{formatCurrency(booking.tax_amount || '0.00', booking.currency)}</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="my-3 h-px bg-stone-200 dark:bg-stone-800" />

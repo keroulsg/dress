@@ -31,7 +31,7 @@ export function PriceSummaryCard({
     rentalDays,
     cleaningFee,
     securityDeposit,
-    taxRate = 0.14,
+    taxRate = 0,
     discountAmount = null,
 }: PriceSummaryCardProps) {
     const currency = dailyRate.currency;
@@ -52,7 +52,7 @@ export function PriceSummaryCard({
             currency,
         },
         { label: 'Mandatory dry cleaning', amount: String(cleaning), currency },
-        { label: 'Taxes & fees', amount: String(tax), currency },
+        ...(tax > 0 ? [{ label: 'Taxes & fees', amount: String(tax), currency }] : []),
         ...(discountAmount
             ? [{ label: 'Discount', amount: String(discount), currency, muted: true }]
             : []),
