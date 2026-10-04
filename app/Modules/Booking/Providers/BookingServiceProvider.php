@@ -10,6 +10,7 @@ use App\Modules\Booking\Domain\Entities\Booking;
 use App\Modules\Booking\Domain\Policies\BookingPolicy;
 use App\Modules\Booking\Infrastructure\Console\Commands\AutoResolveReturnedBookings;
 use App\Modules\Booking\Infrastructure\Console\Commands\ExpirePendingBookings;
+use App\Modules\Booking\Infrastructure\Console\Commands\ReleaseUnpaidHoldsCommand;
 use App\Modules\Booking\Infrastructure\Observers\BookingObserver;
 use App\Modules\Booking\Infrastructure\Repositories\BookingRepository;
 use App\Modules\Booking\Infrastructure\Repositories\EloquentBookingRepository;
@@ -32,6 +33,7 @@ class BookingServiceProvider extends ServiceProvider
         $this->commands([
             ExpirePendingBookings::class,
             AutoResolveReturnedBookings::class,
+            ReleaseUnpaidHoldsCommand::class,
         ]);
 
         $this->loadMigrationsFrom(__DIR__.'/../Infrastructure/Database/Migrations');

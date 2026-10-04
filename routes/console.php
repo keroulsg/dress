@@ -8,4 +8,5 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('bookings:expire-pending')->everyTenMinutes();
+Schedule::command('bookings:release-unpaid-holds --minutes=30')->everyTenMinutes();
+Schedule::command('bookings:auto-resolve-returned --hours=24')->hourly();
