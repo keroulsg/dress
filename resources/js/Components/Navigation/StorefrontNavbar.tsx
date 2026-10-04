@@ -308,31 +308,47 @@ export function StorefrontNavbar({ user, cartCount = 0, wishlistCount = 0 }: Sto
 
             {/* Mobile Menu Drawer */}
             {mobileOpen ? (
-                <nav aria-label="Mobile navigation" className="border-t border-stone-line dark:border-stone-800 bg-white dark:bg-stone-950 px-4 py-4 lg:hidden">
-                    <div className="flex flex-col gap-3">
-                        {navLinks.map((link) => (
-                            <Link
-                                key={link.label}
-                                href={link.href}
-                                className="text-sm font-medium text-charcoal dark:text-stone-100 hover:text-rose dark:hover:text-rose-400"
-                                onClick={() => setMobileOpen(false)}
+                <nav aria-label="Mobile navigation" className="border-t border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-950 px-5 py-5 lg:hidden shadow-xl animate-in slide-in-from-top-2 duration-200">
+                    <div className="flex flex-col gap-3.5">
+                        <div className="grid grid-cols-1 gap-2 pb-2">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.label}
+                                    href={link.href}
+                                    className="px-3 py-2.5 rounded-xl text-sm font-semibold text-charcoal dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-900 transition-colors flex items-center justify-between"
+                                    onClick={() => setMobileOpen(false)}
+                                >
+                                    <span>{link.label}</span>
+                                    <span className="text-stone-400 text-xs">➔</span>
+                                </Link>
+                            ))}
+                        </div>
+
+                        {/* WhatsApp Quick Action in Mobile Menu */}
+                        <div className="pt-2 border-t border-stone-100 dark:border-stone-800">
+                            <a
+                                href="https://wa.me/201220821706"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
                             >
-                                {link.label}
-                            </Link>
-                        ))}
+                                <span>واتساب الدعم الفني: 01220821706</span>
+                            </a>
+                        </div>
+
                         <div className="border-t border-stone-line dark:border-stone-800 pt-3">
                             {!user ? (
                                 <div className="flex flex-col gap-2">
                                     <Link
                                         href="/login"
-                                        className="rounded-xl border border-stone-200 dark:border-stone-700 py-2 text-center text-sm font-semibold text-charcoal dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800"
+                                        className="rounded-xl border border-stone-200 dark:border-stone-700 py-2.5 text-center text-xs font-bold text-charcoal dark:text-stone-100 hover:bg-stone-100 dark:hover:bg-stone-800"
                                         onClick={() => setMobileOpen(false)}
                                     >
                                         {t('storefront.login_btn')}
                                     </Link>
                                     <Link
                                         href="/register"
-                                        className="rounded-xl bg-charcoal dark:bg-amber-600 py-2 text-center text-sm font-semibold text-champagne dark:text-white hover:bg-black dark:hover:bg-amber-500"
+                                        className="rounded-xl bg-charcoal dark:bg-amber-600 py-2.5 text-center text-xs font-bold text-champagne dark:text-white hover:bg-black dark:hover:bg-amber-500"
                                         onClick={() => setMobileOpen(false)}
                                     >
                                         {t('storefront.register_btn')}

@@ -45,10 +45,13 @@ class LegalController extends Controller
         return Inertia::render('Legal/Contact', [
             'contact_info' => [
                 'entity_name' => 'شركة ميزون رنتال لحلول الأزياء الراقية (ش.ذ.م.م)',
-                'commercial_email' => 'support@maisonrentale.com',
-                'phone' => '+20 2 2500 0000',
-                'whatsapp' => '+20 100 000 0000',
-                'address' => 'مبنى 45، شارع التسعين الشمالي، مجمع الأعمال، التجمع الخامس، القاهرة، جمهورية مصر العربية',
+                'commercial_email' => 'keroulsgamal13@gmail.com',
+                'phone' => '01156231162 / 01044200583',
+                'phone_primary' => '01156231162',
+                'phone_secondary' => '01044200583',
+                'whatsapp' => '01220821706',
+                'whatsapp_url' => 'https://wa.me/201220821706',
+                'address' => 'مصر',
                 'working_hours' => '10:00 صباحاً - 10:00 مساءً (السبت - الخميس)',
             ],
         ]);

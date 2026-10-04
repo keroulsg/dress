@@ -92,11 +92,18 @@ export default function Contact({ contact_info }: Props) {
                                 <div className="border-t border-stone-100 dark:border-stone-800 pt-5">
                                     <div className="flex items-center gap-2.5 text-stone-900 dark:text-white font-bold text-base mb-1">
                                         <Phone className="w-5 h-5 text-emerald-500 shrink-0" />
-                                        <span>الخط الساخن والهاتف</span>
+                                        <span>أرقام الهاتف والتواصل</span>
                                     </div>
-                                    <p className="text-xs sm:text-sm text-stone-700 dark:text-stone-300 pr-7 font-mono font-semibold" dir="ltr">
-                                        {contact_info.phone}
-                                    </p>
+                                    <div className="flex flex-col gap-1 pr-7 font-mono font-bold text-xs sm:text-sm text-stone-800 dark:text-stone-200">
+                                        <a href="tel:01156231162" className="hover:text-amber-600 transition-colors inline-flex items-center gap-2">
+                                            <span>01156231162</span>
+                                            <span className="text-[10px] text-stone-400 font-sans">(خط رئيسي)</span>
+                                        </a>
+                                        <a href="tel:01044200583" className="hover:text-amber-600 transition-colors inline-flex items-center gap-2">
+                                            <span>01044200583</span>
+                                            <span className="text-[10px] text-stone-400 font-sans">(دعم مباشر)</span>
+                                        </a>
+                                    </div>
                                 </div>
 
                                 <div className="border-t border-stone-100 dark:border-stone-800 pt-5">
@@ -111,13 +118,13 @@ export default function Contact({ contact_info }: Props) {
 
                                 <div className="border-t border-stone-100 dark:border-stone-800 pt-5">
                                     <a
-                                        href="https://wa.me/201000000000"
+                                        href="https://wa.me/201220821706"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm transition-colors shadow-xs"
                                     >
                                         <MessageSquare className="w-4 h-4" />
-                                        <span>محادثة واتساب فورية مع الدعم (WhatsApp)</span>
+                                        <span>محادثة واتساب فورية: 01220821706 (WhatsApp)</span>
                                     </a>
                                 </div>
                             </div>

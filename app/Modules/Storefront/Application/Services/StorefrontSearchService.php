@@ -26,7 +26,17 @@ class StorefrontSearchService
 
         if (! empty($filters['category'])) {
             $cat = (string) $filters['category'];
-            $query->whereHas('category', fn (Builder $q) => $q->where('slug', $cat)->orWhere('id', $cat));
+            if ($cat === 'wedding-evening-gowns') {
+                $query->whereHas('category', fn (Builder $q) => $q->whereIn('slug', [
+                    'wedding-evening-gowns',
+                    'evening-soiree',
+                    'bridal',
+                    'engagement',
+                    'vintage-couture',
+                ])->orWhere('id', 5));
+            } else {
+                $query->whereHas('category', fn (Builder $q) => $q->where('slug', $cat)->orWhere('id', $cat));
+            }
         }
 
         if (! empty($filters['product_type'])) {
