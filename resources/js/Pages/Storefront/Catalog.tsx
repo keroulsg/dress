@@ -115,14 +115,14 @@ export default function Catalog({ dresses, filters, categories = [] }: any) {
                                     {tr('القسم / التصنيف', 'Category')}
                                 </h3>
                                 <select
-                                    name="category_id"
-                                    defaultValue={filters.category_id || ''}
+                                    name="category"
+                                    value={filters.category || ''}
                                     onChange={handleFilterChange}
                                     className="w-full rounded-xl border border-stone-200 dark:border-stone-700 bg-stone-50 dark:bg-stone-800 p-2 text-xs text-stone-900 dark:text-stone-100 focus:border-amber-600 focus:outline-none"
                                 >
                                     <option value="">{tr('جميع الأقسام (All Categories)', 'All Categories')}</option>
                                     {categories.map((c: any) => (
-                                        <option key={c.id} value={c.id}>
+                                        <option key={c.id} value={c.slug}>
                                             {isRtl ? c.name_ar || c.name : c.name_en || c.name}
                                         </option>
                                     ))}
